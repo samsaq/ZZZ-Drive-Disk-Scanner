@@ -14,7 +14,7 @@ from validMetadata import (
     valid_random_stats,
 )
 
-debug = True
+debug = False
 
 ocr = PaddleOCR(use_angle_cls=True, lang="en")  # loads the model into memory
 

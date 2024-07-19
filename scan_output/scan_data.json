@@ -1,0 +1,152 @@
+[
+    {
+        "set_name": "Woodpecker Electro",
+        "partition_number": "6",
+        "drive_rarity": "A",
+        "drive_current_level": "12",
+        "drive_max_level": "12",
+        "drive_base_stat": "ATK",
+        "drive_base_stat_number": "20%",
+        "random_stats": [
+            [
+                "HP",
+                "75"
+            ],
+            [
+                "DEF",
+                "9.6%"
+            ],
+            [
+                "CRIT Rate",
+                "1.6%"
+            ],
+            [
+                "HP",
+                "2%"
+            ]
+        ]
+    },
+    {
+        "set_name": "Woodpecker Electro",
+        "partition_number": "4",
+        "drive_rarity": "A",
+        "drive_current_level": "12",
+        "drive_max_level": "12",
+        "drive_base_stat": "CRIT Rate",
+        "drive_base_stat_number": "16%",
+        "random_stats": [
+            [
+                "CRIT DMG",
+                "6.4%"
+            ],
+            [
+                "HP",
+                "75"
+            ],
+            [
+                "PEN",
+                "12"
+            ],
+            [
+                "ATK",
+                "13"
+            ]
+        ]
+    },
+    {
+        "set_name": "Inferno Metal",
+        "partition_number": "2",
+        "drive_rarity": "A",
+        "drive_current_level": "12",
+        "drive_max_level": "12",
+        "drive_base_stat": "ATK",
+        "drive_base_stat_number": "212",
+        "random_stats": [
+            [
+                "CRIT Rate",
+                "3.2%"
+            ],
+            [
+                "PEN",
+                "12"
+            ],
+            [
+                "Anomaly Proficiency",
+                "6"
+            ],
+            [
+                "DEF",
+                "3.2%"
+            ]
+        ]
+    },
+    {
+        "set_name": "Inferno Metal",
+        "partition_number": "3",
+        "drive_rarity": "A",
+        "drive_current_level": "12",
+        "drive_max_level": "12",
+        "drive_base_stat": "DEF",
+        "drive_base_stat_number": "124",
+        "random_stats": [
+            [
+                "HP",
+                "2%"
+            ],
+            [
+                "CRIT DMG",
+                "6.4%"
+            ],
+            [
+                "HP",
+                "75"
+            ],
+            [
+                "ATK",
+                "26"
+            ]
+        ]
+    },
+    {
+        "set_name": "Shockstar Disco",
+        "partition_number": "1",
+        "drive_rarity": "A",
+        "drive_current_level": "0",
+        "drive_max_level": "12",
+        "drive_base_stat": "HP",
+        "drive_base_stat_number": "367",
+        "random_stats": [
+            [
+                "HP",
+                "2%"
+            ],
+            [
+                "ATK",
+                "2%"
+            ]
+        ]
+    },
+    {
+        "set_name": "Shockstar Disco",
+        "partition_number": "2",
+        "drive_rarity": "A",
+        "drive_current_level": "0",
+        "drive_max_level": "12",
+        "drive_base_stat": "ATK",
+        "drive_base_stat_number": "53",
+        "random_stats": [
+            [
+                "DEF",
+                "3.2%"
+            ],
+            [
+                "HP",
+                "2%"
+            ],
+            [
+                "CRIT Rate",
+                "1.6%"
+            ]
+        ]
+    }
+]

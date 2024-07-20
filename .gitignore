@@ -1,1 +1,3 @@
 __pycache__/
+scan_output/log.txt
+scan_output/scan_data.json

@@ -131,6 +131,9 @@ def find_closest_stat(
         if similarity > closest_stat_similarity:
             closest_stat_similarity = similarity
             closest_stat = valid_stat
+    # if closest stat similarity is les than 1, then the stat was corrected, log it
+    if closest_stat_similarity < 1:
+        logging.warning(f"Corrected {stat} to {closest_stat}")
     return closest_stat
 
 

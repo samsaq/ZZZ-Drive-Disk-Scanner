@@ -2,6 +2,7 @@ import re
 from paddleocr import PaddleOCR, draw_ocr
 import os
 import json
+import logging
 import strsimpy  # used for string cosine similarity
 from validMetadata import (
     valid_set_names,
@@ -15,6 +16,15 @@ from validMetadata import (
 )
 
 debug = False
+loglevel = logging.DEBUG if debug else logging.INFO
+logging.basicConfig(
+    level=loglevel,
+    filename="scan_output/log.txt",
+    filemode="w",
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    force=True,  # used to allow logging to work even when running in IDE
+)
+
 
 ocr = PaddleOCR(use_angle_cls=True, lang="en")  # loads the model into memory
 
@@ -24,7 +34,7 @@ def find_string_in_list(substring, string_list):
     for string in string_list:
         if substring in string:
             return string
-    print(f"Could not find {substring} in the list")
+    logging.error(f"Could not find {substring} in the list")
     return None
 
 
@@ -33,7 +43,7 @@ def find_index_in_list(substring, string_list):
     for i in range(len(string_list)):
         if substring in string_list[i]:
             return i
-    print(f"Could not find {substring} in the list")
+    logging.error(f"Could not find {substring} in the list for index")
     return None
 
 
@@ -176,21 +186,27 @@ def correct_metadata(metadata):
 def __main__():
     # scan through all images in the scan_input folder
     scan_data = []
+    imagenum = 0
+    logging.info("Starting to scan disk drives")
     for image_path in os.listdir("scan_input"):
         # get the path to the image from here
         image_path = "scan_input/" + image_path
+        logging.info(f"Scanning disk drive # {imagenum}, at {image_path}")
         if debug:
             print(f"Scanning {image_path}")
         result = result_text(scan_image(image_path))
         result_metadata = extract_metadata(result)
         correct_metadata(result_metadata)
         scan_data.append(result_metadata)
+        logging.info(f"Finished scanning disk drive #{imagenum}")
+        imagenum += 1
         if debug:  # log out the output
             for key, value in result_metadata.items():
                 print(f"{key}: {value}")
             print("--------------------------------------------------")
 
     # write the data to a JSON file for later use inside of the scan_output folder
+    logging.info("Finished Scanning. Writing scan data to scan_output/scan_data.json")
     with open("scan_output/scan_data.json", "w") as f:
         json.dump(scan_data, f, indent=4)
 

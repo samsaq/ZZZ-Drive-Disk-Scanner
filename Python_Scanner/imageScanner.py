@@ -1,5 +1,7 @@
 import re
-from paddleocr import PaddleOCR, draw_ocr
+from paddleocr import PaddleOCR
+import easyocr
+import time
 import os
 import json
 import logging
@@ -17,16 +19,21 @@ from validMetadata import (
 
 debug = False
 loglevel = logging.DEBUG if debug else logging.INFO
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+os.environ["KMP_DUPLICATE_LIB_OK"] = (
+    "True"  # needed to prevent a warning from paddleocr - not reccomended for production, used for testing
+)
 logging.basicConfig(
     level=loglevel,
     filename="scan_output/log.txt",
-    filemode="w",
+    filemode="a",
     format="%(asctime)s - %(levelname)s - %(message)s",
     force=True,  # used to allow logging to work even when running in IDE
 )
 
 
 ocr = PaddleOCR(use_angle_cls=True, lang="en")  # loads the model into memory
+easyocr_reader = easyocr.Reader(["en"])  # loads the model into memory
 
 
 # scan a list of strings to see if the input substring is in one of the strings in the list, return the whole string if found
@@ -60,15 +67,21 @@ def drive_rarity_from_max_level(max_level):
 
 
 # scan an image from a given path, and return the result
-def scan_image(image_path):
-    result = ocr.ocr(image_path, cls=True)
+def scan_image(image_path, speed):
+    if speed == "slow":
+        result = easyocr_reader.readtext(image_path, detail=0)
+    else:
+        result = ocr.ocr(image_path, cls=True)
     return result
 
 
-def result_text(result):
+def result_text(result, speed):
     # clean the result to only include the text instead of with coordinates, weights, etc
-    data = result[0]
-    txts = [line[1][0] for line in data]
+    if speed == "slow":
+        txts = result
+    else:
+        data = result[0]
+        txts = [line[1][0] for line in data]
     return txts
 
 
@@ -131,9 +144,15 @@ def find_closest_stat(
         if similarity > closest_stat_similarity:
             closest_stat_similarity = similarity
             closest_stat = valid_stat
-    # if closest stat similarity is les than 1, then the stat was corrected, log it
-    if closest_stat_similarity < 1:
+
+    # if the original stat had a plus modifier (eg: +1 at the end), add it and the following number to the corrected stat
+    if "+" in stat:
+        closest_stat += stat[stat.index("+") : stat.index("+") + 2]
+
+    # if the closest and original stat are too different, log it, use string comparison to check since similarity would also catch substat upgrades
+    if closest_stat != stat:
         logging.warning(f"Corrected {stat} to {closest_stat}")
+
     return closest_stat
 
 
@@ -186,22 +205,36 @@ def correct_metadata(metadata):
         metadata["random_stats"][i] = (closest_stat, metadata["random_stats"][i][1])
 
 
-def __main__():
+# the main function that will be called to process the images in orchestrator.py
+def imageScanner():
     # scan through all images in the scan_input folder
     scan_data = []
     imagenum = 0
-    logging.info("Starting to scan disk drives")
+    logging.info("Starting to process disk drives")
     for image_path in os.listdir("scan_input"):
         # get the path to the image from here
         image_path = "scan_input/" + image_path
-        logging.info(f"Scanning disk drive # {imagenum}, at {image_path}")
+        logging.info(f"Processing disk drive # {imagenum}, at {image_path}")
         if debug:
-            print(f"Scanning {image_path}")
-        result = result_text(scan_image(image_path))
-        result_metadata = extract_metadata(result)
+            print(f"Processing {image_path}")
+        try:
+            try:
+                result = result_text(scan_image(image_path, speed="fast"), speed="fast")
+                result_metadata = extract_metadata(result)
+            except Exception as e:
+                logging.warning(
+                    f"PaddleOCR processing error on disk drive #{imagenum}, trying slower easyOCR model: {e}"
+                )
+                result = result_text(scan_image(image_path, speed="slow"), speed="slow")
+                result_metadata = extract_metadata(result)
+        except Exception as e:
+            logging.error(
+                f"Error processing disk drive with both models #{imagenum}, skipping it: {e}"
+            )
+            continue
         correct_metadata(result_metadata)
         scan_data.append(result_metadata)
-        logging.info(f"Finished scanning disk drive #{imagenum}")
+        logging.info(f"Finished processing disk drive #{imagenum}")
         imagenum += 1
         if debug:  # log out the output
             for key, value in result_metadata.items():
@@ -209,10 +242,14 @@ def __main__():
             print("--------------------------------------------------")
 
     # write the data to a JSON file for later use inside of the scan_output folder
-    logging.info("Finished Scanning. Writing scan data to scan_output/scan_data.json")
+    logging.info("Finished processing. Writing scan data to file")
     with open("scan_output/scan_data.json", "w") as f:
         json.dump(scan_data, f, indent=4)
 
 
 if __name__ == "__main__":
-    __main__()
+    # lets see how long it takes to scan the images
+    start_time = time.time()
+    imageScanner()
+    end_time = time.time()
+    print("Finished in: ", end_time - start_time)

@@ -2,6 +2,7 @@ import math
 import pyautogui
 import keyboard
 import os
+import time
 
 # Get the screen resolution
 screenWidth, screenHeight = pyautogui.size()
@@ -113,6 +114,9 @@ def scanPartition(partitionNumber):
         pyautogui.scroll(-1)
         endOfDiskDrives = scanForEndOfDiskDrives(distanceBetwenRows)
 
+    scanNumber = scanRow(  # scan the top row of the final page of disk drives
+        columnNumber, curRowStart, distanceBetwenColumns, partitionNumber, scanNumber
+    )
     # for loop for the remaining rows on the final page of disk drives
     for i in range(2, rowNumber + 1):
         curRowStart = (
@@ -175,13 +179,27 @@ def scanForEndOfDiskDrives(distanceBetwenRows, rowNumber=None):
 
     if rowNumber == None:
         try:
-            endOfDiskDrives = pyautogui.locateOnScreen(
+            endOfDiskDrivesIcon = pyautogui.locateOnScreen(
                 "Target_Images/zzz-no-disk-drive-icon.png",
                 confidence=0.8,
             )
         except:
-            endOfDiskDrives = False
-        return endOfDiskDrives
+            endOfDiskDrivesIcon = False
+
+        try:
+            endOfDiskDrivesScrollbar = pyautogui.locateOnScreen(
+                "Target_Images/zzz-no-disk-drive-scrollbar.png",
+                confidence=0.95,
+            )
+        except:
+            endOfDiskDrivesScrollbar = False
+        # return false if both the icon and the scrollbar are not visible
+        if endOfDiskDrivesIcon == False and endOfDiskDrivesScrollbar == False:
+            return False
+        # else, return the one that is not false
+        if endOfDiskDrivesIcon != False:
+            return endOfDiskDrivesIcon
+        return endOfDiskDrivesScrollbar
 
     rowModifier = 0.1 + (distanceBetwenRows * (rowNumber - 1))
 
@@ -229,20 +247,13 @@ def scanDiskDrive(paritionNumber, scanNumber=1):
     )
     # save with partition number and scan number
     screenshot.save(
-        "DiskDriveImages/Partition"
-        + str(paritionNumber)
-        + "Scan"
-        + str(scanNumber)
-        + ".png"
+        "scan_input/Partition" + str(paritionNumber) + "Scan" + str(scanNumber) + ".png"
     )
     return scanNumber + 1
 
 
-# lets test the function
-if __name__ == "__main__":
-    # move the current directory to the directory of the script for the relative path to work
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
+# the main function that will be called to get the images by the orchestrator
+def getImages():
     switchToZZZ()
     getToEquipmentScreen()
     # go through the 6 partitions
@@ -250,3 +261,20 @@ if __name__ == "__main__":
         selectParition(i)
         scanPartition(i)
     print("Done")
+
+
+# lets test the function
+if __name__ == "__main__":
+    # move the current directory to the directory of the script for the relative path to work
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+    startTime = time.time()
+    switchToZZZ()
+    getToEquipmentScreen()
+    # go through the 6 partitions
+    for i in range(1, 7):
+        selectParition(i)
+        scanPartition(i)
+    print("Done")
+    endTime = time.time()
+    print("Time taken for image collection: ", endTime - startTime)

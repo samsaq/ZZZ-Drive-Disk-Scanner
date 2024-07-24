@@ -1,4 +1,5 @@
 import re
+import paddle
 from paddleocr import PaddleOCR
 import easyocr
 import time
@@ -31,8 +32,10 @@ logging.basicConfig(
     force=True,  # used to allow logging to work even when running in IDE
 )
 
-
-ocr = PaddleOCR(use_angle_cls=True, lang="en")  # loads the model into memory
+cudaGPU = paddle.device.is_compiled_with_cuda()
+ocr = PaddleOCR(
+    use_angle_cls=True, lang="en", gpu=cudaGPU
+)  # loads the model into memory
 easyocr_reader = easyocr.Reader(["en"])  # loads the model into memory
 
 
@@ -69,7 +72,7 @@ def drive_rarity_from_max_level(max_level):
 # scan an image from a given path, and return the result
 def scan_image(image_path, speed):
     if speed == "slow":
-        result = easyocr_reader.readtext(image_path, detail=0)
+        result = easyocr_reader.readtext(image_path, detail=0, use_gpu=cudaGPU)
     else:
         result = ocr.ocr(image_path, cls=True)
     return result

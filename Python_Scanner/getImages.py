@@ -3,6 +3,7 @@ import pyautogui
 import keyboard
 import os
 import time
+from multiprocessing import Queue
 
 # Get the screen resolution
 screenWidth, screenHeight = pyautogui.size()
@@ -31,7 +32,7 @@ def getToEquipmentScreen():
         return
     pyautogui.click(equipmentButton)
     # wait for the equipment screen to load
-    pyautogui.sleep(1)
+    pyautogui.sleep(2)
 
 
 def getXYOfCircleEdge(centerX, centerY, radius, angle):
@@ -87,13 +88,13 @@ def selectParition(diskNumber):
     pyautogui.click()
 
 
-def scanPartition(partitionNumber):
+def scanPartition(partitionNumber, queue: Queue):
     startPosition = (0.075 * screenWidth, 0.15 * screenHeight)  # start top left
     distanceBetwenColumns = 0.07 * screenWidth
     distanceBetwenRows = 0.158
     columnNumber = 4  # in 1440p, we have 4 columns
     rowNumber = 5  # in 1440p, we have 5 rows
-    endOfDiskDrives = False
+    endOfDiskDrives = scanForEndOfDiskDrives(distanceBetwenRows)
 
     pyautogui.moveTo(startPosition)
 
@@ -109,13 +110,19 @@ def scanPartition(partitionNumber):
             curRowStart,
             distanceBetwenColumns,
             partitionNumber,
+            queue,
             scanNumber,
         )
         pyautogui.scroll(-1)
         endOfDiskDrives = scanForEndOfDiskDrives(distanceBetwenRows)
 
     scanNumber = scanRow(  # scan the top row of the final page of disk drives
-        columnNumber, curRowStart, distanceBetwenColumns, partitionNumber, scanNumber
+        columnNumber,
+        curRowStart,
+        distanceBetwenColumns,
+        partitionNumber,
+        queue,
+        scanNumber,
     )
     # for loop for the remaining rows on the final page of disk drives
     for i in range(2, rowNumber + 1):
@@ -131,12 +138,18 @@ def scanPartition(partitionNumber):
             distanceBetwenColumns,
             distanceBetwenRows,
             partitionNumber,
+            queue,
             scanNumber,
         )
 
 
 def scanRow(
-    columns, rowStartPosition, distanceBetwenColumns, partitionNumber, scanNumber=1
+    columns,
+    rowStartPosition,
+    distanceBetwenColumns,
+    partitionNumber,
+    queue: Queue,
+    scanNumber=1,
 ):
     pyautogui.click()
     for i in range(1, columns + 1):
@@ -144,7 +157,7 @@ def scanRow(
         y = rowStartPosition[1]
         pyautogui.moveTo(x, y)
         pyautogui.click()
-        scanNumber = scanDiskDrive(partitionNumber, scanNumber)
+        scanNumber = scanDiskDrive(partitionNumber, queue, scanNumber)
     return scanNumber
 
 
@@ -157,6 +170,7 @@ def scanRowUntilEndOfDiskDrives(
     distanceBetwenColumns,
     distanceBetwenRows,
     partitionNumber,
+    queue: Queue,
     scanNumber=1,
 ):
     # check the current row for the end of disk drives
@@ -171,7 +185,7 @@ def scanRowUntilEndOfDiskDrives(
             break
         pyautogui.moveTo(x, y)
         pyautogui.click()
-        scanNumber = scanDiskDrive(partitionNumber, scanNumber)
+        scanNumber = scanDiskDrive(partitionNumber, queue, scanNumber)
     return scanNumber
 
 
@@ -234,7 +248,7 @@ def testSnapshot(distanceBetwenRows, rowNumber):
     screenshot.save("DiskDriveImages/test" + str(rowNumber) + ".png")
 
 
-def scanDiskDrive(paritionNumber, scanNumber=1):
+def scanDiskDrive(paritionNumber, queue: Queue, scanNumber=1):
     # get a screenshot of the disk drive after waiting for it to load, save it to a file
     pyautogui.sleep(0.25)
     screenshot = pyautogui.screenshot(
@@ -246,35 +260,22 @@ def scanDiskDrive(paritionNumber, scanNumber=1):
         )
     )
     # save with partition number and scan number
-    screenshot.save(
+    save_path = (
         "scan_input/Partition" + str(paritionNumber) + "Scan" + str(scanNumber) + ".png"
     )
+    screenshot.save(save_path)
+    # put the image path in the queue
+    queue.put(save_path)
     return scanNumber + 1
 
 
 # the main function that will be called to get the images by the orchestrator
-def getImages():
+def getImages(queue: Queue):
     switchToZZZ()
     getToEquipmentScreen()
     # go through the 6 partitions
     for i in range(1, 7):
         selectParition(i)
-        scanPartition(i)
-    print("Done")
-
-
-# lets test the function
-if __name__ == "__main__":
-    # move the current directory to the directory of the script for the relative path to work
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-    startTime = time.time()
-    switchToZZZ()
-    getToEquipmentScreen()
-    # go through the 6 partitions
-    for i in range(1, 7):
-        selectParition(i)
-        scanPartition(i)
-    print("Done")
-    endTime = time.time()
-    print("Time taken for image collection: ", endTime - startTime)
+        scanPartition(i, queue)
+    # put a message in the queue to signal the end of the image collection
+    queue.put("Done")

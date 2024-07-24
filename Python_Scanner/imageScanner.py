@@ -1,6 +1,7 @@
 import re
 import paddle
 from paddleocr import PaddleOCR
+from multiprocessing import Queue
 import easyocr
 import time
 import os
@@ -88,7 +89,7 @@ def result_text(result, speed):
     return txts
 
 
-def extract_metadata(result_text):
+def extract_metadata(result_text, image_path):
     # grab the data we need from the input text
     set_name = result_text[find_index_in_list("Set Effect", result_text) + 1]
     # the number in the [] brackets is the partition_number (eg: [1] means partition 1), search through the text to find the partition_number
@@ -98,6 +99,9 @@ def extract_metadata(result_text):
             # get the number between the brackets
             partition_number = text[text.index("[") + 1 : text.index("]")]
             break
+    # if we couldn't find the partition number, get it via the image path (eg: Partition1Scan1.png would be 1)
+    if partition_number is None:
+        partition_number = re.search(r"Partition(\d+)Scan", image_path).group(1)
     # get the current and max levels of the drive, in the form of Lv. Current/Max
     drive_level = find_string_in_list("Lv.", result_text)
     drive_max_level = drive_level.split("/")[1].strip()
@@ -209,50 +213,50 @@ def correct_metadata(metadata):
 
 
 # the main function that will be called to process the images in orchestrator.py
-def imageScanner():
+def imageScanner(queue: Queue):
     # scan through all images in the scan_input folder
     scan_data = []
     imagenum = 0
-    logging.info("Starting to process disk drives")
-    for image_path in os.listdir("scan_input"):
-        # get the path to the image from here
-        image_path = "scan_input/" + image_path
-        logging.info(f"Processing disk drive # {imagenum}, at {image_path}")
-        if debug:
-            print(f"Processing {image_path}")
-        try:
+    logging.info("Ready to process disk drives")
+    getImagesDone = False
+    while not getImagesDone:
+        while not queue.empty():
+            image_path = queue.get()
+            if image_path == "Done":
+                getImagesDone = True
+                break
+            logging.info(f"Processing disk drive # {imagenum}, at {image_path}")
+            if debug:
+                print(f"Processing {image_path}")
             try:
-                result = result_text(scan_image(image_path, speed="fast"), speed="fast")
-                result_metadata = extract_metadata(result)
+                try:
+                    result = result_text(
+                        scan_image(image_path, speed="fast"), speed="fast"
+                    )
+                    result_metadata = extract_metadata(result, image_path)
+                except Exception as e:
+                    logging.warning(
+                        f"PaddleOCR processing error on disk drive #{imagenum}, trying slower easyOCR model: {e}"
+                    )
+                    result = result_text(
+                        scan_image(image_path, speed="slow"), speed="slow"
+                    )
+                    result_metadata = extract_metadata(result, image_path)
             except Exception as e:
-                logging.warning(
-                    f"PaddleOCR processing error on disk drive #{imagenum}, trying slower easyOCR model: {e}"
+                logging.error(
+                    f"Error processing disk drive with both models #{imagenum}, skipping it: {e}"
                 )
-                result = result_text(scan_image(image_path, speed="slow"), speed="slow")
-                result_metadata = extract_metadata(result)
-        except Exception as e:
-            logging.error(
-                f"Error processing disk drive with both models #{imagenum}, skipping it: {e}"
-            )
-            continue
-        correct_metadata(result_metadata)
-        scan_data.append(result_metadata)
-        logging.info(f"Finished processing disk drive #{imagenum}")
-        imagenum += 1
-        if debug:  # log out the output
-            for key, value in result_metadata.items():
-                print(f"{key}: {value}")
-            print("--------------------------------------------------")
+                continue
+            correct_metadata(result_metadata)
+            scan_data.append(result_metadata)
+            logging.info(f"Finished processing disk drive #{imagenum}")
+            imagenum += 1
+            if debug:  # log out the output
+                for key, value in result_metadata.items():
+                    print(f"{key}: {value}")
+                print("--------------------------------------------------")
 
     # write the data to a JSON file for later use inside of the scan_output folder
     logging.info("Finished processing. Writing scan data to file")
     with open("scan_output/scan_data.json", "w") as f:
         json.dump(scan_data, f, indent=4)
-
-
-if __name__ == "__main__":
-    # lets see how long it takes to scan the images
-    start_time = time.time()
-    imageScanner()
-    end_time = time.time()
-    print("Finished in: ", end_time - start_time)

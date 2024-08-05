@@ -7,7 +7,8 @@ export function TerminalInput() {
       <input
         type="text"
         className="w-full h-8 font-DOS focus:outline-none text-white bg-transparent text-xl"
-        placeholder="Type a command..."
+        defaultValue={"Scan"}
+        placeholder="Type Scan & press enter to start"
       />
     </div>
   );

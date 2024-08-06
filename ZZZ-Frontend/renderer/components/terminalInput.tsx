@@ -9,6 +9,7 @@ export function TerminalInput() {
         className="w-full h-8 font-DOS focus:outline-none text-white bg-transparent text-xl"
         defaultValue={"Scan"}
         placeholder="Type Scan & press enter to start"
+        autoFocus={true}
       />
     </div>
   );

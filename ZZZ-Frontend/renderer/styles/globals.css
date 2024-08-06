@@ -9,7 +9,7 @@
 }
 
 html {
-  @apply text-white w-full h-full;
+  @apply w-full h-full text-white;
   background-color: black;
 }
 

@@ -1,3 +1,4 @@
+import sys
 import os, re, time
 from multiprocessing import Process, Queue
 
@@ -69,22 +70,54 @@ if __name__ == "__main__":
     current_directory = os.getcwd()
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     prepareForScan()
+
+    # get  arguments from the command line when running the script
+    # this will come in the form of: python orchestrator.py <PageLoadTime> <DiscScanTime>
+    # if we don't have the correct number of arguments, we will keep the defaults
+
+    pageLoadTime = 2
+    discScanTime = 0.25
+
+    if len(sys.argv) == 3:
+        pageLoadTime = float(sys.argv[1])
+        discScanTime = float(sys.argv[2])
+
     from getImages import getImages
     from imageScanner import imageScanner
 
     image_queue = Queue()
     GetImagesStartTime = time.time()
     imageScannerStartTime = time.time()
-    get_images_process = Process(target=getImages, args=(image_queue,))
-    image_scanner_process = Process(target=imageScanner, args=(image_queue,))
+    get_images_process = Process(target=getImages, args=(image_queue, pageLoadTime, discScanTime))
+    image_scanner_process = Process(target=imageScanner, args=(image_queue))
 
     get_images_process.start()
     image_scanner_process.start()
 
-    get_images_process.join()
-    GetImagesEndTime = time.time()
-    image_scanner_process.join()
-    imageScannerEndTime = time.time()
+    # Monitor the processes - shutdown gracefully if one of them fails
+    while True:
+        get_images_process.join(timeout=0.1)
+        image_scanner_process.join(timeout=0.1)
+
+        if get_images_process.exitcode is not None:
+            if get_images_process.exitcode == 1:
+                print("getImages process exited with error code 1. Terminating imageScanner process.")
+                image_scanner_process.terminate()
+                break
+            elif get_images_process.exitcode == 0:
+                print("getImages process completed successfully.")
+                GetImagesEndTime = time.time()
+                break
+
+        if image_scanner_process.exitcode is not None:
+            if image_scanner_process.exitcode == 1:
+                print("imageScanner process exited with error code 1. Terminating getImages process.")
+                get_images_process.terminate()
+                break
+            elif image_scanner_process.exitcode == 0:
+                print("imageScanner process completed successfully.")
+                imageScannerEndTime = time.time()
+                break
 
     cleanupImages()
 

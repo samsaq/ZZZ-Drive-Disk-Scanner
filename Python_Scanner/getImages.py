@@ -1,4 +1,5 @@
 import math
+import sys
 import pyautogui
 import keyboard
 import os
@@ -18,21 +19,22 @@ def switchToZZZ():
         ZZZWindow.activate()
 
 
-def getToEquipmentScreen():
+def getToEquipmentScreen(queue: Queue, pageLoadTime):
     # press c to get to the character screen
     keyboard.press("c")
     # wait for the character screen to load
-    pyautogui.sleep(1)
+    pyautogui.sleep(pageLoadTime)
     # press the equipment button to get to the equipment screen
     equipmentButton = pyautogui.locateOnScreen(
         "Target_Images/zzz-equipment-button.png", confidence=0.8
     )
     if equipmentButton == None:
         print("Equipment button not found")
-        return
+        queue.put("Error") # cause the process to end early
+        sys.exit(1)
     pyautogui.click(equipmentButton)
     # wait for the equipment screen to load
-    pyautogui.sleep(2)
+    pyautogui.sleep(pageLoadTime)
 
 
 def getXYOfCircleEdge(centerX, centerY, radius, angle):
@@ -88,7 +90,7 @@ def selectParition(diskNumber):
     pyautogui.click()
 
 
-def scanPartition(partitionNumber, queue: Queue):
+def scanPartition(partitionNumber, queue: Queue, discScanTime):
     startPosition = (0.075 * screenWidth, 0.15 * screenHeight)  # start top left
     distanceBetwenColumns = 0.07 * screenWidth
     distanceBetwenRows = 0.158
@@ -111,6 +113,7 @@ def scanPartition(partitionNumber, queue: Queue):
             distanceBetwenColumns,
             partitionNumber,
             queue,
+            discScanTime,
             scanNumber,
         )
         pyautogui.scroll(-1)
@@ -122,6 +125,7 @@ def scanPartition(partitionNumber, queue: Queue):
         distanceBetwenColumns,
         partitionNumber,
         queue,
+        discScanTime,
         scanNumber,
     )
     # for loop for the remaining rows on the final page of disk drives
@@ -139,7 +143,8 @@ def scanPartition(partitionNumber, queue: Queue):
             distanceBetwenRows,
             partitionNumber,
             queue,
-            scanNumber,
+            discScanTime,
+            scanNumber
         )
 
 
@@ -149,6 +154,7 @@ def scanRow(
     distanceBetwenColumns,
     partitionNumber,
     queue: Queue,
+    discScanTime,
     scanNumber=1,
 ):
     pyautogui.click()
@@ -157,7 +163,7 @@ def scanRow(
         y = rowStartPosition[1]
         pyautogui.moveTo(x, y)
         pyautogui.click()
-        scanNumber = scanDiskDrive(partitionNumber, queue, scanNumber)
+        scanNumber = scanDiskDrive(partitionNumber, queue, discScanTime, scanNumber)
     return scanNumber
 
 
@@ -171,6 +177,7 @@ def scanRowUntilEndOfDiskDrives(
     distanceBetwenRows,
     partitionNumber,
     queue: Queue,
+    discScanTime,
     scanNumber=1,
 ):
     # check the current row for the end of disk drives
@@ -185,7 +192,7 @@ def scanRowUntilEndOfDiskDrives(
             break
         pyautogui.moveTo(x, y)
         pyautogui.click()
-        scanNumber = scanDiskDrive(partitionNumber, queue, scanNumber)
+        scanNumber = scanDiskDrive(partitionNumber, queue, discScanTime, scanNumber)
     return scanNumber
 
 
@@ -248,9 +255,9 @@ def testSnapshot(distanceBetwenRows, rowNumber):
     screenshot.save("DiskDriveImages/test" + str(rowNumber) + ".png")
 
 
-def scanDiskDrive(paritionNumber, queue: Queue, scanNumber=1):
+def scanDiskDrive(paritionNumber, queue: Queue, discScanTime, scanNumber=1):
     # get a screenshot of the disk drive after waiting for it to load, save it to a file
-    pyautogui.sleep(0.25)
+    pyautogui.sleep(discScanTime)
     screenshot = pyautogui.screenshot(
         region=(
             int(0.31 * screenWidth),  # left
@@ -270,12 +277,12 @@ def scanDiskDrive(paritionNumber, queue: Queue, scanNumber=1):
 
 
 # the main function that will be called to get the images by the orchestrator
-def getImages(queue: Queue):
+def getImages(queue: Queue, pageLoadTime, discScanTime):
     switchToZZZ()
-    getToEquipmentScreen()
+    getToEquipmentScreen(queue, pageLoadTime)
     # go through the 6 partitions
     for i in range(1, 7):
         selectParition(i)
-        scanPartition(i, queue)
+        scanPartition(i, queue, discScanTime)
     # put a message in the queue to signal the end of the image collection
     queue.put("Done")

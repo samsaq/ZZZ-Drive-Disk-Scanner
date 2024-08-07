@@ -1,6 +1,9 @@
 import { Icon } from "@iconify/react";
 import React from "react";
+import { useAtom } from "jotai";
 import Drawer from "react-modern-drawer";
+
+import { discScanAtom, pageLoadAtom } from "../atoms";
 
 //Drawer Styles
 import "react-modern-drawer/dist/index.css";
@@ -10,6 +13,21 @@ import crtStyles from "../styles/crt.module.css";
 export function SettingsDrawer() {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const toggleSettings = () => setIsSettingsOpen(!isSettingsOpen);
+
+  const [discScanSpeed, setDiscScanSpeed] = useAtom(discScanAtom);
+  const handleDiscScanSpeedChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setDiscScanSpeed(parseFloat(event.target.value));
+  };
+
+  const [pageLoadSpeed, setPageLoadSpeed] = useAtom(pageLoadAtom);
+  const handlePageLoadSpeedChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setPageLoadSpeed(parseInt(event.target.value));
+  };
+
   return (
     <>
       <button onClick={toggleSettings}>
@@ -41,6 +59,7 @@ export function SettingsDrawer() {
             defaultValue="0.25"
             className="range m-4 max-w-[200px] w-full"
             step="0.25"
+            onChange={handleDiscScanSpeedChange}
           />
           <div className="flex w-full justify-between px-2 text-xs max-w-[250px] mb-8">
             <span>0.25s</span>
@@ -56,6 +75,7 @@ export function SettingsDrawer() {
             defaultValue="2"
             className="range m-4 max-w-[200px] w-full"
             step="1"
+            onChange={handlePageLoadSpeedChange}
           />
           <div className="flex w-full justify-between px-2 text-xs max-w-[200px] mb-8">
             <span>1s</span>

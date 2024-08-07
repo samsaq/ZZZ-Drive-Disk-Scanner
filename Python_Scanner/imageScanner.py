@@ -1,9 +1,9 @@
 import re
+import sys
 import paddle
 from paddleocr import PaddleOCR
 from multiprocessing import Queue
 import easyocr
-import time
 import os
 import json
 import logging
@@ -217,6 +217,7 @@ def imageScanner(queue: Queue):
     # scan through all images in the scan_input folder
     scan_data = []
     imagenum = 0
+    consecutive_errors = 0
     logging.info("Ready to process disk drives")
     getImagesDone = False
     while not getImagesDone:
@@ -225,6 +226,9 @@ def imageScanner(queue: Queue):
             if image_path == "Done":
                 getImagesDone = True
                 break
+            elif image_path == "Error": # if the getImages process has crashed, stop the program
+                logging.critical("Failed to get to the equipment screen - try increasing the page load time")
+                sys.exit(1)
             logging.info(f"Processing disk drive # {imagenum}, at {image_path}")
             if debug:
                 print(f"Processing {image_path}")
@@ -246,10 +250,18 @@ def imageScanner(queue: Queue):
                 logging.error(
                     f"Error processing disk drive with both models #{imagenum}, skipping it: {e}"
                 )
+                consecutive_errors += 1
+                # if we have more than 10 consecutive errors, stop the program and log it - probably wrong timing settings
+                if consecutive_errors > 10:
+                    logging.critical(
+                        "Over 10 consecutive errors, stopping the program - try increasing the time between disc drive scans"
+                    )
+                    sys.exit(1)
                 continue
             correct_metadata(result_metadata)
             scan_data.append(result_metadata)
             logging.info(f"Finished processing disk drive #{imagenum}")
+            consecutive_errors = 0
             imagenum += 1
             if debug:  # log out the output
                 for key, value in result_metadata.items():

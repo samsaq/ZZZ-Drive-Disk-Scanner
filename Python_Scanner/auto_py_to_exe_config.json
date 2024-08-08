@@ -1,0 +1,125 @@
+{
+ "version": "auto-py-to-exe-configuration_v1",
+ "pyinstallerOptions": [
+  {
+   "optionDest": "noconfirm",
+   "value": true
+  },
+  {
+   "optionDest": "filenames",
+   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/orchestrator.py"
+  },
+  {
+   "optionDest": "onefile",
+   "value": false
+  },
+  {
+   "optionDest": "console",
+   "value": true
+  },
+  {
+   "optionDest": "icon_file",
+   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/ZZZ-Frontend/renderer/public/images/ZZZ-Scanner-Icon.ico"
+  },
+  {
+   "optionDest": "name",
+   "value": "ZZZ-Py-Scanner"
+  },
+  {
+   "optionDest": "clean_build",
+   "value": false
+  },
+  {
+   "optionDest": "strip",
+   "value": false
+  },
+  {
+   "optionDest": "noupx",
+   "value": false
+  },
+  {
+   "optionDest": "disable_windowed_traceback",
+   "value": false
+  },
+  {
+   "optionDest": "uac_admin",
+   "value": false
+  },
+  {
+   "optionDest": "uac_uiaccess",
+   "value": false
+  },
+  {
+   "optionDest": "argv_emulation",
+   "value": false
+  },
+  {
+   "optionDest": "bootloader_ignore_signals",
+   "value": false
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/getImages.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/imageScanner.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/validMetadata.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/Target_Images;Target_Images/"
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/scan_input;scan_input/"
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/scan_output;scan_output/"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "imghdr"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "imgaug"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "pyclipper"
+  },
+  {
+   "optionDest": "collect_data",
+   "value": "paddle"
+  },
+  {
+   "optionDest": "collect_data",
+   "value": "scipy"
+  },
+  {
+   "optionDest": "collect_all",
+   "value": "paddleocr"
+  },
+  {
+   "optionDest": "collect_all",
+   "value": "easyocr"
+  },
+  {
+   "optionDest": "collect_all",
+   "value": "lmdb"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "requests"
+  }
+ ],
+ "nonPyinstallerOptions": {
+  "increaseRecursionLimit": true,
+  "manualArguments": ""
+ }
+}

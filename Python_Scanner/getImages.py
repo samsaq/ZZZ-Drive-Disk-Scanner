@@ -2,8 +2,6 @@ import math
 import sys
 import pyautogui
 import keyboard
-import os
-import time
 from multiprocessing import Queue
 
 # Get the screen resolution
@@ -286,3 +284,7 @@ def getImages(queue: Queue, pageLoadTime, discScanTime):
         scanPartition(i, queue, discScanTime)
     # put a message in the queue to signal the end of the image collection
     queue.put("Done")
+
+# a test function to run the getImages function
+if __name__ == "__main__":
+    getImages(Queue(), 2, 0.25)

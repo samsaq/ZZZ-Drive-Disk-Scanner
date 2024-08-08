@@ -20,25 +20,33 @@ from validMetadata import (
 )
 
 debug = False
-loglevel = logging.DEBUG if debug else logging.INFO
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 os.environ["KMP_DUPLICATE_LIB_OK"] = (
     "True"  # needed to prevent a warning from paddleocr - not reccomended for production, used for testing
 )
-logging.basicConfig(
-    level=loglevel,
-    filename="scan_output/log.txt",
-    filemode="a",
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    force=True,  # used to allow logging to work even when running in IDE
-)
+cudaGPU = None # left as None so it can be set later in the load_ocr_models function
+ocr = None
+easyocr_reader = None
 
-cudaGPU = paddle.device.is_compiled_with_cuda()
-ocr = PaddleOCR(
-    use_angle_cls=True, lang="en", gpu=cudaGPU
-)  # loads the model into memory
-easyocr_reader = easyocr.Reader(["en"])  # loads the model into memory
+# function to load the OCR models into memory so they don't auto-load when imported
+def load_ocr_models():
+    global ocr, easyocr_reader, cudaGPU
+    cudaGPU = paddle.device.is_compiled_with_cuda()
+    ocr = PaddleOCR(
+        use_angle_cls=True, lang="en", gpu=cudaGPU
+    )  # loads the model into memory
+    easyocr_reader = easyocr.Reader(["en"])  # loads the model into memory
 
+# function to setup logging so it doesn't auto-run when imported
+def setup_logging():
+    loglevel = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(
+        level=loglevel,
+        filename="scan_output/log.txt",
+        filemode="a",
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        force=True,  # used to allow logging to work even when running in IDE
+    )
 
 # scan a list of strings to see if the input substring is in one of the strings in the list, return the whole string if found
 def find_string_in_list(substring, string_list):
@@ -214,6 +222,8 @@ def correct_metadata(metadata):
 
 # the main function that will be called to process the images in orchestrator.py
 def imageScanner(queue: Queue):
+    setup_logging()
+    load_ocr_models()
     # scan through all images in the scan_input folder
     scan_data = []
     imagenum = 0

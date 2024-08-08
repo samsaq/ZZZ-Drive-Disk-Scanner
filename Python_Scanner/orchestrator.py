@@ -2,11 +2,22 @@ import sys
 import os, re, time
 from multiprocessing import Process, Queue
 
+from getImages import getImages
+from imageScanner import imageScanner
+
 # python script that controls the scanning of the disk drives
 # logging to file is handled by the the imageScanner.py and getImages.py scripts themselves
 
 
 def prepareForScan():
+
+    # create the scan_input directory if it doesn't exist
+    if not os.path.exists("scan_input"):
+        os.makedirs("scan_input")
+
+    # create the scan_output directory if it doesn't exist
+    if not os.path.exists("scan_output"):
+        os.makedirs("scan_output")
 
     # delete old .png images in the scan_input directory
     for file in os.listdir("scan_input"):
@@ -82,14 +93,13 @@ if __name__ == "__main__":
         pageLoadTime = float(sys.argv[1])
         discScanTime = float(sys.argv[2])
 
-    from getImages import getImages
-    from imageScanner import imageScanner
-
     image_queue = Queue()
     GetImagesStartTime = time.time()
+    GetImagesEndTime = 0
+    imageScannerEndTime = 0
     imageScannerStartTime = time.time()
-    get_images_process = Process(target=getImages, args=(image_queue, pageLoadTime, discScanTime))
-    image_scanner_process = Process(target=imageScanner, args=(image_queue))
+    get_images_process = Process(target=getImages, args=((image_queue), (pageLoadTime), (discScanTime)))
+    image_scanner_process = Process(target=imageScanner, args=(image_queue, ))
 
     get_images_process.start()
     image_scanner_process.start()
@@ -107,7 +117,6 @@ if __name__ == "__main__":
             elif get_images_process.exitcode == 0:
                 print("getImages process completed successfully.")
                 GetImagesEndTime = time.time()
-                break
 
         if image_scanner_process.exitcode is not None:
             if image_scanner_process.exitcode == 1:
@@ -117,7 +126,9 @@ if __name__ == "__main__":
             elif image_scanner_process.exitcode == 0:
                 print("imageScanner process completed successfully.")
                 imageScannerEndTime = time.time()
-                break
+
+        if not get_images_process.is_alive() and not image_scanner_process.is_alive():
+            break
 
     cleanupImages()
 

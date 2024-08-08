@@ -81,7 +81,7 @@ def drive_rarity_from_max_level(max_level):
 # scan an image from a given path, and return the result
 def scan_image(image_path, speed):
     if speed == "slow":
-        result = easyocr_reader.readtext(image_path, detail=0, use_gpu=cudaGPU)
+        result = easyocr_reader.readtext(image_path, detail=0)
     else:
         result = ocr.ocr(image_path, cls=True)
     return result

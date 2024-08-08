@@ -87,7 +87,8 @@ def selectParition(diskNumber):
             pyautogui.moveTo(x, y)
     pyautogui.click()
 
-
+# TODO:
+# BUG: The very first disc of each partition is not being scanned
 def scanPartition(partitionNumber, queue: Queue, discScanTime):
     startPosition = (0.075 * screenWidth, 0.15 * screenHeight)  # start top left
     distanceBetwenColumns = 0.07 * screenWidth

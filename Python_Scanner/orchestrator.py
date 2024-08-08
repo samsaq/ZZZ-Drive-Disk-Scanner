@@ -98,6 +98,8 @@ if __name__ == "__main__":
     GetImagesEndTime = 0
     imageScannerEndTime = 0
     imageScannerStartTime = time.time()
+    GetImagesStopped = False
+    imageScannerStopped = False
     get_images_process = Process(target=getImages, args=((image_queue), (pageLoadTime), (discScanTime)))
     image_scanner_process = Process(target=imageScanner, args=(image_queue, ))
 
@@ -114,18 +116,20 @@ if __name__ == "__main__":
                 print("getImages process exited with error code 1. Terminating imageScanner process.")
                 image_scanner_process.terminate()
                 break
-            elif get_images_process.exitcode == 0:
+            elif get_images_process.exitcode == 0 and not GetImagesStopped:
                 print("getImages process completed successfully.")
                 GetImagesEndTime = time.time()
+                GetImagesStopped = True
 
         if image_scanner_process.exitcode is not None:
             if image_scanner_process.exitcode == 1:
                 print("imageScanner process exited with error code 1. Terminating getImages process.")
                 get_images_process.terminate()
                 break
-            elif image_scanner_process.exitcode == 0:
+            elif image_scanner_process.exitcode == 0 and not imageScannerStopped:
                 print("imageScanner process completed successfully.")
                 imageScannerEndTime = time.time()
+                imageScannerStopped = True
 
         if not get_images_process.is_alive() and not image_scanner_process.is_alive():
             break

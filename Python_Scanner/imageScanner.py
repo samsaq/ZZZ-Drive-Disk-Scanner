@@ -1,13 +1,13 @@
 import re
 import sys
-import paddle
+from paddle.device import is_compiled_with_cuda
 from paddleocr import PaddleOCR
 from multiprocessing import Queue
-import easyocr
+from easyocr import Reader as easyocrReader
 import os
 import json
 import logging
-import strsimpy  # used for string cosine similarity
+from strsimpy import Cosine  # used for string cosine similarity
 from validMetadata import (
     valid_set_names,
     valid_partition_1_main_stats,
@@ -22,31 +22,45 @@ from validMetadata import (
 debug = False
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 os.environ["KMP_DUPLICATE_LIB_OK"] = (
-    "True"  # needed to prevent a warning from paddleocr - not reccomended for production, used for testing
+    "True"  # needed to prevent a warning from paddleocr - not reccomended for production
 )
-cudaGPU = None # left as None so it can be set later in the load_ocr_models function
+cudaGPU = None  # left as None so it can be set later in the load_ocr_models function
 ocr = None
 easyocr_reader = None
+
 
 # function to load the OCR models into memory so they don't auto-load when imported
 def load_ocr_models():
     global ocr, easyocr_reader, cudaGPU
-    cudaGPU = paddle.device.is_compiled_with_cuda()
+    cudaGPU = is_compiled_with_cuda()
     ocr = PaddleOCR(
         use_angle_cls=True, lang="en", gpu=cudaGPU
     )  # loads the model into memory
-    easyocr_reader = easyocr.Reader(["en"])  # loads the model into memory
+    easyocr_reader = easyocrReader(["en"])  # loads the model into memory
+
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
 
 # function to setup logging so it doesn't auto-run when imported
 def setup_logging():
     loglevel = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
         level=loglevel,
-        filename="scan_output/log.txt",
+        filename=resource_path("scan_output/log.txt"),
         filemode="a",
         format="%(asctime)s - %(levelname)s - %(message)s",
         force=True,  # used to allow logging to work even when running in IDE
     )
+
 
 # scan a list of strings to see if the input substring is in one of the strings in the list, return the whole string if found
 def find_string_in_list(substring, string_list):
@@ -82,6 +96,7 @@ def drive_rarity_from_max_level(max_level):
 def scan_image(image_path, speed):
     if speed == "slow":
         result = easyocr_reader.readtext(image_path, detail=0)
+        result = ocr.ocr(image_path, cls=True)
     else:
         result = ocr.ocr(image_path, cls=True)
     return result
@@ -151,7 +166,7 @@ def extract_metadata(result_text, image_path):
 def find_closest_stat(
     stat, valid_stats
 ):  # find the closest stat in the input list to the input stat
-    cosine = strsimpy.Cosine(2)
+    cosine = Cosine(2)
     closest_stat = None
     closest_stat_similarity = 0
     for valid_stat in valid_stats:
@@ -236,8 +251,12 @@ def imageScanner(queue: Queue):
             if image_path == "Done":
                 getImagesDone = True
                 break
-            elif image_path == "Error": # if the getImages process has crashed, stop the program
-                logging.critical("Failed to get to the equipment screen - try increasing the page load time")
+            elif (
+                image_path == "Error"
+            ):  # if the getImages process has crashed, stop the program
+                logging.critical(
+                    "Failed to get to the equipment screen - try increasing the page load time"
+                )
                 sys.exit(1)
             logging.info(f"Processing disk drive # {imagenum}, at {image_path}")
             if debug:

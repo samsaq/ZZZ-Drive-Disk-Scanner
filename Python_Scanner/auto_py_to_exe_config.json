@@ -23,7 +23,7 @@
   },
   {
    "optionDest": "name",
-   "value": "ZZZ-Py-Scanner"
+   "value": "ZZZ-Scanner"
   },
   {
    "optionDest": "clean_build",
@@ -59,39 +59,27 @@
   },
   {
    "optionDest": "datas",
-   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/getImages.py;."
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/imageScanner.py;."
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/validMetadata.py;."
-  },
-  {
-   "optionDest": "datas",
    "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/Target_Images;Target_Images/"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/scan_input;scan_input/"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/scan_output;scan_output/"
-  },
-  {
-   "optionDest": "hiddenimports",
-   "value": "imghdr"
   },
   {
    "optionDest": "hiddenimports",
    "value": "imgaug"
   },
   {
+   "optionDest": "collect_all",
+   "value": "paddleocr"
+  },
+  {
    "optionDest": "hiddenimports",
    "value": "pyclipper"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "imghdr"
+  },
+  {
+   "optionDest": "collect_all",
+   "value": "lmdb"
   },
   {
    "optionDest": "collect_data",
@@ -102,20 +90,12 @@
    "value": "scipy"
   },
   {
-   "optionDest": "collect_all",
-   "value": "paddleocr"
+   "optionDest": "datas",
+   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/scan_input;scan_input/"
   },
   {
-   "optionDest": "collect_all",
-   "value": "easyocr"
-  },
-  {
-   "optionDest": "collect_all",
-   "value": "lmdb"
-  },
-  {
-   "optionDest": "hiddenimports",
-   "value": "requests"
+   "optionDest": "datas",
+   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/scan_output;scan_output/"
   }
  ],
  "nonPyinstallerOptions": {

@@ -1,34 +1,67 @@
 import math
+import os
 import sys
 import pyautogui
-import keyboard
+import logging
+from keyboard import press
 from multiprocessing import Queue
+
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+
+def setup_logging(log_file_path):
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename=log_file_path,
+        filemode="w",
+        format="%(asctime)s - %(message)s",
+    )
+
 
 # Get the screen resolution
 screenWidth, screenHeight = pyautogui.size()
 
 
 def switchToZZZ():
+    logging.info("Switching to ZenlessZoneZero")
     ZZZWindow = pyautogui.getWindowsWithTitle("ZenlessZoneZero")[0]
     if ZZZWindow.isActive == False:
         pyautogui.press(
             "altleft"
         )  # Somehow this is needed to switch to the window, Why though?
         ZZZWindow.activate()
+    logging.info("Switched to ZenlessZoneZero")
 
 
 def getToEquipmentScreen(queue: Queue, pageLoadTime):
+    logging.info("Getting to the equipment screen")
     # press c to get to the character screen
-    keyboard.press("c")
+    press("c")
+    logging.info("Pressed c for character screen")
     # wait for the character screen to load
     pyautogui.sleep(pageLoadTime)
+    # adjust the target based on devMode
+    target = "./Target_Images/zzz-equipment-button.png"
     # press the equipment button to get to the equipment screen
-    equipmentButton = pyautogui.locateOnScreen(
-        "Target_Images/zzz-equipment-button.png", confidence=0.8
-    )
+    try:
+        equipmentButton = pyautogui.locateOnScreen(target, confidence=0.8)
+    except Exception as e:
+        logging.error(f"Error locating equipment button:  + {e}")
+        logging.error(f"Current directory: {os.getcwd()}")
+    logging.info("Located equipment button: " + str(equipmentButton))
     if equipmentButton == None:
+        logging.error("Equipment button not found")
         print("Equipment button not found")
-        queue.put("Error") # cause the process to end early
+        queue.put("Error")  # cause the process to end early
         sys.exit(1)
     pyautogui.click(equipmentButton)
     # wait for the equipment screen to load
@@ -87,6 +120,7 @@ def selectParition(diskNumber):
             pyautogui.moveTo(x, y)
     pyautogui.click()
 
+
 def scanPartition(partitionNumber, queue: Queue, discScanTime):
     startPosition = (0.075 * screenWidth, 0.15 * screenHeight)  # start top left
     distanceBetwenColumns = 0.07 * screenWidth
@@ -141,7 +175,7 @@ def scanPartition(partitionNumber, queue: Queue, discScanTime):
             partitionNumber,
             queue,
             discScanTime,
-            scanNumber
+            scanNumber,
         )
 
 
@@ -197,16 +231,18 @@ def scanForEndOfDiskDrives(distanceBetwenRows, rowNumber=None):
 
     if rowNumber == None:
         try:
+            target = "./Target_Images/zzz-no-disk-drive-icon.png"
             endOfDiskDrivesIcon = pyautogui.locateOnScreen(
-                "Target_Images/zzz-no-disk-drive-icon.png",
+                target,
                 confidence=0.8,
             )
         except:
             endOfDiskDrivesIcon = False
 
         try:
+            target = "./Target_Images/zzz-no-disk-drive-scrollbar.png"
             endOfDiskDrivesScrollbar = pyautogui.locateOnScreen(
-                "Target_Images/zzz-no-disk-drive-scrollbar.png",
+                target,
                 confidence=0.95,
             )
         except:
@@ -224,8 +260,9 @@ def scanForEndOfDiskDrives(distanceBetwenRows, rowNumber=None):
     # check if the end of the disk drives is visible
     endOfDiskDrives = False
     try:
+        target = "./Target_Images/zzz-no-disk-drive-icon.png"
         endOfDiskDrives = pyautogui.locateOnScreen(
-            "Target_Images/zzz-no-disk-drive-icon.png",
+            target,
             confidence=0.8,
             region=(
                 int(0.04 * screenWidth),  # left
@@ -265,7 +302,11 @@ def scanDiskDrive(paritionNumber, queue: Queue, discScanTime, scanNumber=1):
     )
     # save with partition number and scan number
     save_path = (
-        "scan_input/Partition" + str(paritionNumber) + "Scan" + str(scanNumber) + ".png"
+        "./scan_input/Partition"
+        + str(paritionNumber)
+        + "Scan"
+        + str(scanNumber)
+        + ".png"
     )
     screenshot.save(save_path)
     # put the image path in the queue
@@ -275,6 +316,8 @@ def scanDiskDrive(paritionNumber, queue: Queue, discScanTime, scanNumber=1):
 
 # the main function that will be called to get the images by the orchestrator
 def getImages(queue: Queue, pageLoadTime, discScanTime):
+    log_file_path = resource_path("scan_output/templog.txt")
+    setup_logging(log_file_path)
     switchToZZZ()
     getToEquipmentScreen(queue, pageLoadTime)
     # go through the 6 partitions
@@ -283,6 +326,7 @@ def getImages(queue: Queue, pageLoadTime, discScanTime):
         scanPartition(i, queue, discScanTime)
     # put a message in the queue to signal the end of the image collection
     queue.put("Done")
+
 
 # a test function to run the getImages function
 if __name__ == "__main__":

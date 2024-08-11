@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply w-full h-full;
+  }
+}
+
+html {
+  @apply w-full h-full text-white;
+  background-color: black;
+}
+
+#__next {
+  @apply w-full h-full;
+}

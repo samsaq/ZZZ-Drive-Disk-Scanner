@@ -25,7 +25,7 @@ def generate_set_name():
 # generate synethetic line image using a given set name
 # the background is black and the text is white, using a font given by font_path
 # the image should be size to fit the text with a little padding
-def generate_line_image(set_name, font_path, font_size=20, padding=8, padding_range=2):
+def generate_line_image(set_name, font_path, font_size=34, padding=8, padding_range=2):
     # randomize the padding a little bit to simulate real world boxing
     padding += random.randint(-padding_range, padding_range)
 
@@ -72,8 +72,8 @@ def save_image_with_ground_truth(image, set_name, image_dir, gt_dir):
             generate_random_suffix()
         )  # there is a change the corpus pulls the same combo twice
 
-    image.save(f"{image_dir}/{image_name}.png")
-    with open(f"{gt_dir}/{image_name}.gt.txt", "w") as f:
+    image.save(f"{image_dir}/{image_name}_synth.png")
+    with open(f"{gt_dir}/{image_name}_synth.gt.txt", "w") as f:
         f.write(set_name)
 
 
@@ -94,7 +94,7 @@ def generate_synthetic_data(num_images, image_dir, gt_dir, font_path):
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    num_images = 10
+    num_images = 300
     image_dir = "./training_data/sub_images"
     gt_dir = "./training_data/txt_truths"
     font_path = "./training_data/ZZZ-Font.ttf"

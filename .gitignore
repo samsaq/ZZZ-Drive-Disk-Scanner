@@ -5,3 +5,8 @@ Python_Scanner/output/
 Python_Scanner/build/
 Python_Scanner/dist/
 Python_Scanner/OCRvenv
+Python_Scanner/Tesseract/input_images
+Python_Scanner/Tesseract/input_images_preprocessed
+Python_Scanner/Tesseract/training_data/box_files
+Python_Scanner/Tesseract/training_data/sub_images
+Python_Scanner/Tesseract/training_data/txt_truths

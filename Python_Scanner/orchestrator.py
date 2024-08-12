@@ -141,7 +141,8 @@ if __name__ == "__main__":
         if not get_images_process.is_alive() and not image_scanner_process.is_alive():
             break
 
-    cleanupImages()
+    # we're keeping them for now in case we need to debug
+    # cleanupImages()
 
     os.chdir(current_directory)
 

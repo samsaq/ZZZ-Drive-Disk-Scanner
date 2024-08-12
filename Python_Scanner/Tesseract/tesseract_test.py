@@ -1,6 +1,6 @@
 # lets scan an image in Target_Images and see what we get using tessaract
 
-import pytesseract, os, logging, sys, time
+import pytesseract, os, logging, sys, time, cv2
 
 
 def resource_path(relative_path):
@@ -30,17 +30,32 @@ def exception_hook(exc_type, exc_value, exc_traceback):
 
 
 # given a path, preprocess the image for tesseract
-def preprocess_image(image_path):
-    print("Preprocessing image at ", image_path)
-    # TODO: Implement image preprocessing (Binirization, Noise removal, etc.)
-    # Text uses a specific color of white, so we can binarize the image to make it easier for tesseract to read
+# TODO: Improve this - it seems to have minimal to no effect on the output
+def preprocess_image(image_path, save_path=None):
+    # Load the image
+    image = cv2.imread(image_path)
+
+    # Convert the image to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # non-adaptive thresholding
+    threshold, binary_image = cv2.threshold(
+        gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+
+    # Save the image if a save_path is provided
+    if save_path:
+        cv2.imwrite(save_path, binary_image)
+        print(f"Preprocessed image saved to {save_path}")
+
+    return binary_image
 
 
 def scan_image(image_path):
     config = "--oem 3"  # testing different engines
     print("Scanning image at ", image_path)
     try:
-        text = pytesseract.image_to_data(image_path, config=config)
+        text = pytesseract.image_to_string(image_path, config=config)
     except Exception as e:
         logging.error("Error while scanning image: ", e)
         print("Error while scanning image: ", e)
@@ -59,6 +74,13 @@ if __name__ == "__main__":
     try:
         startTime = time.time()
         result = scan_image("./Target_Images/zzz-example-disc-drive.png")
+        # test the preprocessing function by saving the preprocessed image
+        preprocess_image(
+            "./Target_Images/zzz-example-disc-drive.png",
+            "./Target_Images/preprocessedTest.png",
+        )
+        # use the preprocessed image for scanning and log it so we can see the difference
+        resultPreprocessed = scan_image("./Target_Images/preprocessedTest.png")
         endTime = time.time()
     except Exception as e:
         logging.error("Error while scanning image: ", e)
@@ -66,8 +88,10 @@ if __name__ == "__main__":
     print("Done scanning image")
     logging.info("Done scanning image")
     logging.info("Scanned result: ")
+    logging.info(str(result))
+    logging.info("Preprocessed result: ")
+    logging.info(str(resultPreprocessed))
     if startTime and endTime:
         logging.info("Time taken: " + str(endTime - startTime))
         print("Time taken: " + str(endTime - startTime))
-    logging.info(str(result))
     logging.shutdown()

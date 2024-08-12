@@ -1,4 +1,7 @@
 __pycache__/
 Python_Scanner/scan_output/
 Python_Scanner/scan_input/
-output/
+Python_Scanner/output/
+Python_Scanner/build/
+Python_Scanner/dist/
+Python_Scanner/OCRvenv

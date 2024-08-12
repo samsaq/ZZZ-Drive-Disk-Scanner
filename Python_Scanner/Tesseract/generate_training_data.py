@@ -1,8 +1,34 @@
-import os
+import os, logging, sys
 import easyocr, cv2
 from PIL import Image
 
 easyocr_reader = easyocr.Reader(["en"])
+
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+
+def setup_logging(log_file_path):
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename=log_file_path,
+        filemode="w",
+        format="%(asctime)s - %(message)s",
+    )
+    sys.excepthook = exception_hook
+
+
+def exception_hook(exc_type, exc_value, exc_traceback):
+    logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+    sys.exit()
 
 
 def scan_image(image_path):
@@ -126,7 +152,10 @@ def create_test_dirs():
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    setup_logging(resource_path("./training_data/training_data_generation.log"))
     create_test_dirs()
     generate_easyocr_training_data(
-        "./test_Images", "./training_data/sub_images", "./training_data/txt_truths"
+        "./test_Images",
+        "./training_data/sub_images",
+        "./training_data/txt_truths",
     )

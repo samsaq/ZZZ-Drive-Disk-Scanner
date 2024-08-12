@@ -10,3 +10,4 @@ Python_Scanner/Tesseract/input_images_preprocessed
 Python_Scanner/Tesseract/training_data/box_files
 Python_Scanner/Tesseract/training_data/sub_images
 Python_Scanner/Tesseract/training_data/txt_truths
+Python_Scanner/Tesseract/training_data/training_data_generation.log

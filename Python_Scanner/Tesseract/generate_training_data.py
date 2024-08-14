@@ -162,7 +162,9 @@ def generate_easyocr_training_data(input_folder, sub_image_dir, gt_dir):
 
 # create the sub_images and txt_truths directories if they don't exist
 # Exists so that git cloned projects don't have to create these directories manually
-def create_test_dirs():
+def create_data_dirs():
+    if not os.path.exists("./input_images_preprocessed"):
+        os.makedirs("./input_images_preprocessed")
     if not os.path.exists("./training_data/sub_images"):
         os.makedirs("./training_data/sub_images")
     if not os.path.exists("./training_data/txt_truths"):
@@ -173,7 +175,7 @@ if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     # NOTE: The Error closing: Operation on closed image error seems to be caused by easyocr's reader closing the image redundantly - can be ignored
     setup_logging(resource_path("./training_data/training_data_generation.log"))
-    create_test_dirs()
+    create_data_dirs()
     generate_easyocr_training_data(
         "./input_images_preprocessed",
         "./training_data/sub_images",

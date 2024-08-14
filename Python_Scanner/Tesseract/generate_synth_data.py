@@ -22,10 +22,26 @@ def generate_set_name():
     return set_name
 
 
+# generate a random percentage (between 0 and 100)
+# percentages can have a decimal with one digit after it (eg: 50.5%)
+# 50/50 chance of having a decimal
+def generate_percentage():
+    percentage = f"{random.randint(0, 100)}"
+    if random.choice([True, False]):
+        percentage += f".{random.randint(0, 9)}"
+    percentage += "%"
+    return percentage
+
+
+# generate a random number in a given range
+def generate_number(min=1, max=500):
+    return f"{random.randint(min, max)}"
+
+
 # generate synethetic line image using a given set name
 # the background is black and the text is white, using a font given by font_path
 # the image should be size to fit the text with a little padding
-def generate_line_image(set_name, font_path, font_size=34, padding=8, padding_range=2):
+def generate_line_image(gen_text, font_path, font_size=34, padding=8, padding_range=2):
     # randomize the padding a little bit to simulate real world boxing
     padding += random.randint(-padding_range, padding_range)
 
@@ -33,9 +49,9 @@ def generate_line_image(set_name, font_path, font_size=34, padding=8, padding_ra
     if padding < 0:
         padding = 0
 
-    font = ImageFont.truetype(font_path, font_size)
+    ZZZFont = ImageFont.truetype(font_path, font_size)
     # get the size of the text using getbbox
-    left, top, right, bottom = font.getbbox(set_name)
+    left, top, right, bottom = ZZZFont.getbbox(gen_text)
     # calculate the width and height of the text
     width = right - left
     height = bottom - top
@@ -49,10 +65,10 @@ def generate_line_image(set_name, font_path, font_size=34, padding=8, padding_ra
     draw = ImageDraw.Draw(image)
 
     # calculate the x and y positions of the text
-    x = padding
-    y = padding
+    x = (image_width) // 2
+    y = (image_height) // 2
     # draw the text on the image
-    draw.text((x, y), set_name, font=font, fill="white")
+    draw.text((x, y), gen_text, font=ZZZFont, fill="white", anchor="mm")
     return image
 
 
@@ -60,25 +76,29 @@ def generate_random_suffix(length=6):
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
 
-def save_image_with_ground_truth(image, set_name, image_dir, gt_dir):
+def save_image_with_ground_truth(
+    image, gen_string, image_dir, gt_dir, gen_function=generate_random_suffix
+):
     # image name will be the set name with spaces replaced with underscores & the ground truth will be the set name
-    image_name = set_name.replace(" ", "_")
+    image_name = gen_string.replace(" ", "_")
 
     # check if the image.png and gt.txt already exist if so, add a random suffix to the image name
     while os.path.exists(f"{image_dir}/{image_name}.png") or os.path.exists(
         f"{gt_dir}/{image_name}.gt.txt"
     ):
         image_name += (
-            generate_random_suffix()
-        )  # there is a change the corpus pulls the same combo twice
+            gen_function()
+        )  # there is a chance the same thing is generated again, but it's very low
 
     image.save(f"{image_dir}/{image_name}_synth.png")
     with open(f"{gt_dir}/{image_name}_synth.gt.txt", "w") as f:
-        f.write(set_name)
+        f.write(gen_string)
 
 
 # function to generate x number of synthetic line images and ground truth pairs to the given output directories
-def generate_synthetic_data(num_images, image_dir, gt_dir, font_path):
+def generate_synthetic_data(
+    num_images, image_dir, gt_dir, font_path, gen_function=generate_set_name
+):
     if num_images < 1:
         return
     if not os.path.exists(image_dir):
@@ -86,16 +106,17 @@ def generate_synthetic_data(num_images, image_dir, gt_dir, font_path):
     if not os.path.exists(gt_dir):
         os.makedirs(gt_dir)
     for i in range(num_images):
-        set_name = generate_set_name()
-        image = generate_line_image(set_name, font_path)
-        save_image_with_ground_truth(image, set_name, image_dir, gt_dir)
+        gen_string = gen_function()
+        image = generate_line_image(gen_string, font_path)
+        save_image_with_ground_truth(image, gen_string, image_dir, gt_dir)
     print(f"Generated {num_images} synthetic images and ground truths")
 
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    num_images = 300
+    num_images = 100
     image_dir = "./training_data/sub_images"
     gt_dir = "./training_data/txt_truths"
     font_path = "./training_data/ZZZ-Font.ttf"
-    generate_synthetic_data(num_images, image_dir, gt_dir, font_path)
+    gen_function = generate_percentage
+    generate_synthetic_data(num_images, image_dir, gt_dir, font_path, gen_function)

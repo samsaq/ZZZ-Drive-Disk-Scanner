@@ -1,6 +1,5 @@
 # lets scan an image in Target_Images and see what we get using tessaract
-
-import pytesseract, os, logging, sys, time, cv2
+import pytesseract, os, logging, sys, time
 
 
 def resource_path(relative_path):
@@ -30,7 +29,7 @@ def exception_hook(exc_type, exc_value, exc_traceback):
 
 
 def scan_image(image_path):
-    config = "--oem 3"  # testing different engines
+    config = "-l ZZZ --tessdata-dir ./models"  # testing model
     print("Scanning image at ", image_path)
     try:
         text = pytesseract.image_to_string(image_path, config=config)
@@ -46,3 +45,5 @@ if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     log_file_path = resource_path("tesseract-test.log")
     setup_logging(log_file_path)
+    image_path = resource_path("./test_Images/Partition1Scan2_preprocessed.png")
+    result = scan_image(image_path)

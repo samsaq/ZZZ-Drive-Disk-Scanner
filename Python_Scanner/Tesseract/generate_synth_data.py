@@ -10,8 +10,35 @@ import random
 import string
 from nltk.corpus import words
 from PIL import Image, ImageDraw, ImageFont
+import sys
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(
+    ".."
+)  # use sys.path to import the valid_metadata.py file (its in the parent directory)
+from validMetadata import (
+    valid_partition_1_main_stats,
+    valid_partition_2_main_stats,
+    valid_partition_3_main_stats,
+    valid_partition_4_main_stats,
+    valid_partition_5_main_stats,
+    valid_partition_6_main_stats,
+    valid_random_stats,
+)
 
 word_list = words.words()
+
+# combine the valid main stats from valid_metadata.py into a single list and remove duplicates
+valid_main_stats = list(
+    set(
+        valid_partition_1_main_stats
+        + valid_partition_2_main_stats
+        + valid_partition_3_main_stats
+        + valid_partition_4_main_stats
+        + valid_partition_5_main_stats
+        + valid_partition_6_main_stats
+    )
+)
 
 
 # generate a random set name (two words with a space in between followed by a space)
@@ -36,6 +63,25 @@ def generate_percentage():
 # generate a random number in a given range
 def generate_number(min=1, max=500):
     return f"{random.randint(min, max)}"
+
+
+# generate a random main stat (picked at random from the valid main stats list)
+def generate_main_stat():
+    return random.choice(valid_main_stats)
+
+
+# generate a random sub stat (picked at random from the valid random stats list)
+def generate_sub_stat(ratio_with_upgrade=0.5):
+    if random.random() < ratio_with_upgrade:
+        return f"{random.choice(valid_random_stats)}+{generate_number(min=1, max=4)}"
+    return random.choice(valid_random_stats)
+
+
+# generate lvl string (eg: "Lv. 9/15"),
+def generate_lvl_string(min_level=0, ranks=[("B", 9), ("A", 12), ("S", 15)]):
+    # ranks are the possible types of lvl strings that can be generated (eg: a B rank has a max lvl of 9)
+    rank, max_level = random.choice(ranks)
+    return f"Lv. {random.randint(min_level, max_level)}/{max_level}"
 
 
 # generate synethetic line image using a given set name
@@ -72,7 +118,7 @@ def generate_line_image(gen_text, font_path, font_size=34, padding=8, padding_ra
     return image
 
 
-def generate_random_suffix(length=6):
+def generate_random_suffix(length=15):
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
 
@@ -81,6 +127,9 @@ def save_image_with_ground_truth(
 ):
     # image name will be the set name with spaces replaced with underscores & the ground truth will be the set name
     image_name = gen_string.replace(" ", "_")
+
+    # remove any non-alphanumeric characters from the image name since they cause issues saving the image
+    image_name = "".join(e for e in image_name if e.isalnum())
 
     # check if the image.png and gt.txt already exist if so, add a random suffix to the image name
     while os.path.exists(f"{image_dir}/{image_name}.png") or os.path.exists(
@@ -114,9 +163,9 @@ def generate_synthetic_data(
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    num_images = 100
-    image_dir = "./training_data/sub_images"
-    gt_dir = "./training_data/txt_truths"
+    num_images = 10
+    image_dir = "./training_data/synth_sub_images"
+    gt_dir = "./training_data/synth_txt_truths"
     font_path = "./training_data/ZZZ-Font.ttf"
-    gen_function = generate_percentage
+    gen_function = generate_sub_stat
     generate_synthetic_data(num_images, image_dir, gt_dir, font_path, gen_function)

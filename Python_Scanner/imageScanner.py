@@ -179,7 +179,7 @@ def find_closest_stat(
     if "+" in stat:
         closest_stat += stat[stat.index("+") : stat.index("+") + 2]
 
-    # if the closest and original stat are too different, log it, use string comparison to check since similarity would also catch substat upgrades
+    # if the closest and original stat are different, log it, use string comparison to check since similarity would also catch substat upgrades
     if closest_stat != stat:
         logging.warning(f"Corrected {stat} to {closest_stat}")
 

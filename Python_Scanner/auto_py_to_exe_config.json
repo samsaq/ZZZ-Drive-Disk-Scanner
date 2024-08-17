@@ -23,7 +23,7 @@
   },
   {
    "optionDest": "name",
-   "value": "ZZZ-Scanner"
+   "value": "ZZZ-Scanner-Tesseract"
   },
   {
    "optionDest": "clean_build",
@@ -63,39 +63,7 @@
   },
   {
    "optionDest": "hiddenimports",
-   "value": "imgaug"
-  },
-  {
-   "optionDest": "collect_all",
-   "value": "paddleocr"
-  },
-  {
-   "optionDest": "hiddenimports",
-   "value": "pyclipper"
-  },
-  {
-   "optionDest": "hiddenimports",
-   "value": "imghdr"
-  },
-  {
-   "optionDest": "collect_all",
-   "value": "lmdb"
-  },
-  {
-   "optionDest": "collect_data",
-   "value": "paddle"
-  },
-  {
-   "optionDest": "collect_data",
-   "value": "scipy"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/scan_input;scan_input/"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/samsaq/Documents/GitHub/ZZZ-Drive-Disk-Scanner/Python_Scanner/scan_output;scan_output/"
+   "value": "PyTessBaseAPI"
   }
  ],
  "nonPyinstallerOptions": {

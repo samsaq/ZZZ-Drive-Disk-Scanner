@@ -13,6 +13,10 @@ from generate_training_data import (
     generate_easyocr_training_data,
 )
 
+# import from parent directory
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from preprocess_images import preprocess_image
+
 # the overarching script that will convert the input images to training data
 # incorporates the following scripts:
 # 1. generate_training_data.py
@@ -58,27 +62,6 @@ def setup_logging(log_file_path):
 def exception_hook(exc_type, exc_value, exc_traceback):
     logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
     sys.exit()
-
-
-# given a path, preprocess the image for tesseract
-def preprocess_image(image_path, save_path=None):
-    # Load the image
-    image = cv2.imread(image_path)
-
-    # Convert the image to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # non-adaptive thresholding
-    threshold, binary_image = cv2.threshold(
-        gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
-    )
-
-    # Save the image if a save_path is provided
-    if save_path:
-        cv2.imwrite(save_path, binary_image)
-        print(f"Preprocessed image saved to {save_path}")
-
-    return binary_image
 
 
 def process_input():
@@ -147,7 +130,9 @@ def process_input():
             logging.debug(f"Preprocessing image: {file}")
             input_path = os.path.join(input_images_folder, file)
             output_path = os.path.join(preprocessed_images_folder, file)
-            preprocess_image(input_path, output_path)
+            preprocess_image(
+                input_path, output_path, target_images_folder="../Target_Images"
+            )
 
     # generate the training data
     generate_easyocr_training_data(

@@ -1,6 +1,9 @@
 # dependencies
 node_modules
 
+# ZZZ-Scanner
+ZZZ-Scanner-Tesseract
+
 # logs
 *.log
 

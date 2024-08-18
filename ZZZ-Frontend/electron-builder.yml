@@ -1,6 +1,6 @@
-appId: com.example.nextron
-productName: My Nextron App
-copyright: Copyright © 2018 Yoshihide Shiono
+appId: ZZZ-Scanner
+productName: ZZZ-Scanner
+copyright: Copyright © 2024 samsaq
 directories:
   output: dist
   buildResources: resources
@@ -9,4 +9,9 @@ files:
     filter:
       - package.json
       - app
+extraFiles:
+  - from: ZZZ-Scanner-Tesseract
+    to: ZZZ-Scanner-Tesseract
 publish: null
+win: 
+  requestedExecutionLevel: 'requireAdministrator'

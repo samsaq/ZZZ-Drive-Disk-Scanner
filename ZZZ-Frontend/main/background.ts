@@ -19,11 +19,11 @@ if (isProd) {
 } else {
   app.setPath("userData", `${app.getPath("userData")} (development)`);
 }
-
+let mainWindow;
 (async () => {
   await app.whenReady();
 
-  const mainWindow = createWindow("main", {
+  mainWindow = createWindow("main", {
     width: 1000,
     height: 600,
     autoHideMenuBar: true,
@@ -83,9 +83,13 @@ ipcMain.on("start-scan", (event, arg) => {
             if (lastLine.includes("CRITICAL")) {
               console.log("Scan error: ", lastLine);
               event.reply("scan-error", { message: lastLine });
+              mainWindow.show();
+              mainWindow.focus();
             } else if (lastLine.includes("Writing scan data to file")) {
               console.log("Scan complete: ", lastLine);
               event.reply("scan-complete", { message: lastLine });
+              mainWindow.show();
+              mainWindow.focus();
             }
           }
         });

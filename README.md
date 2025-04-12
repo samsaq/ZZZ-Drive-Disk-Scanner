@@ -18,7 +18,8 @@ This branch is working to add weapon data (wengines, upgrade levels (weapon fusi
 
 ### TODOs
 
-1. Grab a 1080p "Lv." image for the character weapon view (only the 1440p is there atm)
-2. Add a periodic check to see if a new version of the scanner is available on github so folks don't use an out of date version
-3. Seperate out set strings and similar data that is changed version to version from validMetaData into a seperate json file
-4. See if we can get that version data JSON to be downloadable-on-click from the electron frontend if a new version is available (and no other code changes are present between versions)
+1. Gonna need to update weapon, disk, and character data for the new versions (up to 1.7) alongside their images, etc
+2. Consider finding an alternative method of image matching that is not practically resolution dependent
+3. Add a periodic check to see if a new version of the scanner is available on github so folks don't use an out of date version
+4. Seperate out set strings and similar data that is changed version to version from validMetaData into a seperate json file
+5. See if we can get that version data JSON to be downloadable-on-click from the electron frontend if a new version is available (and no other code changes are present between versions)

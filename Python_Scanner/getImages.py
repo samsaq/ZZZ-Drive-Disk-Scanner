@@ -556,7 +556,9 @@ def getWEngineTab(
 
     return scanNumber - 1  # Return total number of items scanned
 
+
 ### End of WEngine specific functions ###
+
 
 ### Character Scanning Functions ###
 def navigate_character_details(target: str = "Base Stats"):
@@ -727,7 +729,7 @@ def get_character_snapshots(
         int(0.31 * screenWidth),  # left
         int(0.1 * screenHeight),  # top
         int(0.2 * screenWidth),  # width
-        int(0.15 * screenHeight),  # height
+        int(0.2 * screenHeight),  # height
     )
 
     # take a snapshot of the character name
@@ -883,7 +885,9 @@ def get_characters(pageLoadTime: float = 0.25, queue: Queue = None):
         if i != characters_in_final_row - 1:
             pyautogui.moveTo(cur_character_position)
 
+
 ### End of Character Scanning Functions ###
+
 
 # the main function that will be called to get the images by the orchestrator
 def getImages(queue: Queue, pageLoadTime, discScanTime, scantype):
@@ -913,7 +917,7 @@ def getImages(queue: Queue, pageLoadTime, discScanTime, scantype):
     elif scantype == "Character":
         getToEquipmentScreen(queue, pageLoadTime)
         queue.put("Character")
-        # TODO: implement character scan
+        get_characters(pageLoadTime, queue)
     elif scantype == "All":
         # get the disk data
         getToEquipmentScreen(queue, pageLoadTime)
@@ -928,7 +932,7 @@ def getImages(queue: Queue, pageLoadTime, discScanTime, scantype):
         getWEngineTab(queue, discScanTime)
         # get the character data
         queue.put("Character")
-        get_characters()
+        get_characters(pageLoadTime, queue)
     # put a message in the queue to signal the end of the image collection
     queue.put("Done")
 

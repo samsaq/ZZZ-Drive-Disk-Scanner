@@ -7,7 +7,14 @@ import logging
 import pytesseract
 import cv2
 from strsimpy import Cosine  # used for string cosine similarity
-from preprocess_images import preprocess_image, preprocess_wengine_image, preprocess_image_simple, preprocess_level_image, preprocess_skill_image, preprocess_character_weapon_image
+from preprocess_images import (
+    preprocess_image,
+    preprocess_wengine_image,
+    preprocess_image_simple,
+    preprocess_level_image,
+    preprocess_skill_image,
+    preprocess_character_weapon_image,
+)
 from getImages import ScreenResolution
 from validMetadata import (
     valid_set_names,
@@ -228,6 +235,7 @@ def find_closest_stat(
 
     return closest_stat
 
+
 def find_closest_number(value: str, valid_numbers: list[str]) -> str:
     """
     Find the closest number from a list of valid numbers
@@ -251,6 +259,7 @@ def find_closest_number(value: str, valid_numbers: list[str]) -> str:
     except ValueError:
         print(f"Error converting '{value}' to number, returning last valid number")
         return valid_numbers[-1]
+
 
 # a function that will correct metadata based off of cosine similarity to known correct metadata values
 # eg: for the set name, we can compare the input set name to a list of known set names use the cosine similarity to find the closest match
@@ -472,6 +481,7 @@ def correct_wengine_data(data):
 
 ### Character Specific Functions ###
 
+
 def process_character_disk_image(image_path: str, partition_number: int) -> dict:
     """
     Process the character disk image to get the disk data for comparison with the current scan's data to assign the disk to a character later
@@ -508,24 +518,33 @@ def process_character_disk_image(image_path: str, partition_number: int) -> dict
         return {}
 
 
-def process_character_weapon_image(resolution: ScreenResolution, image_path: str) -> str:
+def process_character_weapon_image(
+    resolution: ScreenResolution, image_path: str
+) -> dict:
     """
     Process the character weapon image to get the weapon name
 
     Args:
-        resolution (ScreenResolution): Current screen resolution
-        image_path (str): Path to the character weapon image
+        image_path (str): Path to the character weapon image (not preprocessed)
 
     Returns:
-        str: The weapon name, corrected to the known list of weapon names
+        A weapon dictionary in format:
+        {
+            "name": str,
+            "level": int,
+            "max_level": int,
+            "upgrade_rank": int,
+        }
     """
-    processed_image = preprocess_character_weapon_image(resolution, image_path)
+    processed_image, upgrade_rank = preprocess_character_weapon_image(
+        image_path=image_path, resolution=resolution
+    )
     text = scan_image(processed_image)
-    text = " ".join(text)  # concatenate if needed
-
-    # correct to the known list of weapon names
-    text = find_closest_stat(text, valid_weapon_names, plus_modifier=False) 
-    return text
+    weapon = process_wengine_text(text, preprocess_rank=upgrade_rank)
+    weapon["name"] = find_closest_stat(
+        weapon["name"], valid_weapon_names
+    )  # correct the name to the known list of weapon names
+    return weapon
 
 
 def process_cinema_image(
@@ -712,6 +731,7 @@ def process_level_image(image_path: str) -> tuple[str, str]:
 
     return current_level, max_level
 
+
 ### End of Character Specific Functions ###
 
 
@@ -833,18 +853,31 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                 elif image_path.contains("skill"):
                     cur_skill_name = image_path.split("_skill_")[1].split("_")[0]
                     isCoreSkill = cur_skill_name == "core"
-                    cur_character_data[cur_skill_name + "_level"] = process_skill_image(image_path, isCoreSkill)
+                    cur_character_data[cur_skill_name + "_level"] = process_skill_image(
+                        image_path, isCoreSkill
+                    )
                 elif image_path.contains("weapon"):
-                    #TODO: Need more weapon info in order to match to a specific weapon
-                    cur_character_data["weapon"] = process_character_weapon_image(resolution=resolution, image_path=image_path)
+                    cur_character_data["weapon"] = process_character_weapon_image(
+                        resolution=resolution, image_path=image_path
+                    )
                     character_data.append(cur_character_data)
-                    cur_character_data = {} # weapon is the final data point for a character
+                    cur_character_data = (
+                        {}
+                    )  # weapon is the final data point for a character
                 elif image_path.contains("cinema"):
-                    cur_character_data["mindscape_level"] = process_cinema_image(resolution=resolution, image_path=image_path)
+                    cur_character_data["mindscape_level"] = process_cinema_image(
+                        resolution=resolution, image_path=image_path
+                    )
                 elif image_path.contains("disk"):
                     # grab the partition number from the image path in form f"./{outputFolder}/agent_{characterNumber}_partition_{paritionNumber}_scan.png"
-                    partition_number = image_path.split("_partition_")[1].split("_scan")[0]
-                    cur_character_data["disk_" + partition_number] = process_character_disk_image(image_path=image_path, partition_number=partition_number)
+                    partition_number = image_path.split("_partition_")[1].split(
+                        "_scan"
+                    )[0]
+                    cur_character_data["disk_" + partition_number] = (
+                        process_character_disk_image(
+                            image_path=image_path, partition_number=partition_number
+                        )
+                    )
 
     # write the data to a JSON file for later use inside of the scan_output folder
     logging.info("Finished processing. Writing scan data to file")

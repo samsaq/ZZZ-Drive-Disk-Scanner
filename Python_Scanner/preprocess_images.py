@@ -241,7 +241,7 @@ def preprocess_wengine_image(
 ### Character Preprocessing Functions ###
 def preprocess_image_simple(image_path: str, save_path: str = None):
     """
-    Preprocess the image by converting to grayscale and thresholding simply
+    Preprocess the image minimally by converting to grayscale and thresholding
 
     Args:
         image_path (str): Path to the name image
@@ -407,24 +407,31 @@ def preprocess_skill_image(
 
 
 def preprocess_character_weapon_image(
-    resolution: ScreenResolution,
     image_path: str,
     save_path: str = None,
     target_folder: str = "./Target_Images",
-    cutoff_offset: int = 10,
+    resolution: ScreenResolution = ScreenResolution.RES_1080P,
+    icon_padding_percentage: int = 5,
+    resize_for_upgrade_scan: bool = True,
+    resize_width: int = 384,
 ):
     """
-    Preprocess the character weapon image to get a black and white image of just the weapon name (accounting for varying amount of lines of text and different resolutions)
+    Preprocess the character weapon image to get a black and white image of the all sections of interest (name, level)
+    we need to get a full scan of the character weapon (that way we can assign the correct weapon to the character)
 
     Args:
-        resolution (ScreenResolution): Current screen resolution
         image_path (str): Path to the character weapon image
         save_path (str, optional): Path to save the preprocessed image
         target_folder (str, optional): Path to the target folder
-        cutoff_offset (int, optional): Offset to add to the template match's y coordinate (percent of initial image height)
+        resolution (ScreenResolution, optional): Current screen resolution
+        icon_padding_percentage (int, optional): Percentage of image height to add to padding around icons to black out
+        resize_for_upgrade_scan (bool, optional): Whether to resize the image for upgrade scan template matching
+        resize_width (int, optional): Width to resize to for upgrade scan template matching
 
     Returns:
-        cv2.Mat: The preprocessed image
+        tuple of:
+            cv2.Mat: The preprocessed image
+            int: weapon upgrade level (1 if not found)
 
     Used In:
         process_character_weapon_image()
@@ -434,31 +441,26 @@ def preprocess_character_weapon_image(
     image = cv2.imread(image_path)
     if image is None:
         print(f"Error: Could not load image at {image_path}")
-        return None
+        return None, 1
 
-    weapon_cutoff_image_suffix = (
+    weapon_lvl_image_suffix = (
         "-1440p" if resolution == ScreenResolution.RES_1440P else "-1080p"
     )
-    weapon_cutoff_image_path = (
-        f"{target_folder}/zzz-character-weapon-cutoff{weapon_cutoff_image_suffix}.png"
+    weapon_lvl_image_path = (
+        f"{target_folder}/zzz-character-weapon-lvl{weapon_lvl_image_suffix}.png"
     )
     # load the template image
-    template = cv2.imread(weapon_cutoff_image_path)
+    template = cv2.imread(weapon_lvl_image_path)
     if template is None:
-        print(f"Error: Could not load template at {weapon_cutoff_image_path}")
-        return None
+        print(f"Error: Could not load template at {weapon_lvl_image_path}")
+        return None, 1
 
     # perform template matching
     result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
 
-    # cutoff the image vertically at the template match's y coordinate
-    # only keep the portion above where the template was found, minus the offset percentage
-    height, width = image.shape[:2]
-    cutoff_y = max_loc[1] - int(
-        cutoff_offset / 100 * height
-    )  # Convert offset to percentage
-    image = image[:cutoff_y, :]  # Keep only the top portion
+    # Get template dimensions to know where it ends
+    template_height, template_width = template.shape[:2]
 
     # Convert the image to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -471,15 +473,75 @@ def preprocess_character_weapon_image(
         cv2.THRESH_BINARY,
     )[1]
 
-    # NOTE: We aren't resizing the image here like in the other preprocess_images.py functions
-    # This is because the font size already varies between characters, and I don't want to have to set a resize width per character
+    # Define the y-range to black out around the template match
+    icon_padding = int(
+        icon_padding_percentage / 100 * binary_image.shape[0]
+    )  # 5% of image height
+    icon_y_start = max(0, max_loc[1] - icon_padding)
+    icon_y_end = min(binary_image.shape[0], max_loc[1] + template_height + icon_padding)
+
+    binary_image[icon_y_start:icon_y_end, : max_loc[0]] = (
+        0  # Black out left side of template to remove the rank icon
+    )
+
+    right_cutoff = int(0.8 * binary_image.shape[1])  # Rightmost 20% of image width
+    binary_image[icon_y_start:icon_y_end, right_cutoff:] = (
+        0  # Black out right side to remove the character icon
+    )
+
+    # Scan for weapon upgrade level
+    upgrade_rank = 1  # default if no match found
+
+    # Make a copy of the original grayscale image for upgrade level detection
+    upgrade_scan_image = gray.copy()
+
+    # Resize the image for template matching if needed
+    if resize_for_upgrade_scan:
+        original_height, original_width = upgrade_scan_image.shape
+        scaling_factor = resize_width / original_width
+        resized_height = int(original_height * scaling_factor)
+        upgrade_scan_image = cv2.resize(
+            upgrade_scan_image,
+            (resize_width, resized_height),
+            interpolation=cv2.INTER_AREA,
+        )
+
+    # Try to find the upgrade level stars
+    upgrade_star_paths = [
+        os.path.join(target_folder, "zzz-wengine-character-upgrade1.png"),  # 1
+        os.path.join(target_folder, "zzz-wengine-character-upgrade2.png"),  # 2
+        os.path.join(target_folder, "zzz-wengine-character-upgrade3.png"),  # 3
+        os.path.join(target_folder, "zzz-wengine-character-upgrade4.png"),  # 4
+        os.path.join(target_folder, "zzz-wengine-character-upgrade5.png"),  # 5
+    ]
+
+    # Try each upgrade template until we find a match
+    for rank, upgrade_path in enumerate(upgrade_star_paths, start=1):
+        # Load the upgrade template
+        upgrade_template = cv2.imread(upgrade_path, cv2.IMREAD_GRAYSCALE)
+        if upgrade_template is None:
+            print(f"Warning: Could not load upgrade template {upgrade_path}")
+            continue
+
+        # Perform template matching
+        result = cv2.matchTemplate(
+            upgrade_scan_image, upgrade_template, cv2.TM_CCOEFF_NORMED
+        )
+        max_val = result.max()
+
+        if (
+            max_val >= 0.85
+        ):  # If we found a good match (slightly lower threshold for flexibility)
+            upgrade_rank = rank
+            break  # Stop searching once we find a match
 
     # Save the image if a save_path is provided
     if save_path:
         cv2.imwrite(save_path, binary_image)
         print(f"Preprocessed image saved to {save_path}")
 
-    return binary_image
+    return binary_image, upgrade_rank
+
 
 ### End of Character Preprocessing Functions ###
 

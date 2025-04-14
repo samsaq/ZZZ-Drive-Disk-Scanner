@@ -1,6 +1,7 @@
 import os
 import time
 import re
+import PIL
 import cv2
 import pyautogui
 import pytesseract
@@ -16,6 +17,7 @@ from preprocess_images import preprocess_image
 from multiprocessing import Queue
 from strsimpy import Cosine
 from getImages import selectParition
+import numpy as np
 
 # Seperate file to hold character collection functions for testing and creation before integration into getImages.py & imageScanner.py
 
@@ -181,17 +183,84 @@ def is_character_owned(
         return False
 
 
+def get_character_disks_equipped(
+    screenshot: PIL.Image.Image,
+    resolution: ScreenResolution,
+    target_folder: str = "Target_Images",
+):
+    """
+    Get the disks equipped of the current character from an image of the equipment screen
+
+    Args:
+        screenshot (PIL.Image.Image): The screenshot of the equipment screen to check from pyautogui.screenshot()
+        resolution (ScreenResolution): The current screen resolution
+        target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
+
+    Returns:
+        list[bool]: A list of size 6 (which disks are equipped, each is true if equipped)
+
+    Usage:
+        Used in get_character_equipment_status() to determine what disks are available to scan
+    """
+    resolution_suffix = (
+        "-1440p" if resolution == ScreenResolution.RES_1440P else "-1080p"
+    )
+    disk_targets = [
+        f"./{target_folder}/zzz-character-equipment-no-disk-{i}{resolution_suffix}.png"
+        for i in range(1, 7)
+    ]
+
+    # Convert PIL Image to cv2 format
+    screenshot_cv = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+
+    # For each disk_target, check if it matches in the screenshot
+    disks_equipped = []
+    for disk_target in disk_targets:
+        # Load the template image
+        template = cv2.imread(disk_target)
+        if template is None:
+            print(f"Warning: Could not load disk template {disk_target}")
+            disks_equipped.append(True)  # Assume equipped if template can't be loaded
+            continue
+
+        # Perform template matching
+        result = cv2.matchTemplate(screenshot_cv, template, cv2.TM_CCOEFF_NORMED)
+        max_val = result.max()
+
+        # If we found a good match
+        # then the disk is NOT equipped, so we negate the result
+        disks_equipped.append(not (max_val >= 0.9))
+
+    return disks_equipped
+
+
 def get_character_equipment_status():
     """
     Get the equipment status of the current character - do they have all disks equipped, is the wengine equipped, etc.
+    Triggered when we enter the character's equipment screen
 
     Args:
         None
 
     Returns:
-        dict: A dictionary containing the equipment status of the current character
+        dict: A dictionary containing the equipment status of the current character in the form:
+        {
+            "all_disks_equipped": bool,
+            "wengine_equipped": bool,
+            "disks_equipped": list[bool] of size 6 (which disks are equipped, each is true if equipped)
+        }
+
+    Usage:
+        Used in get_character_snapshots() to determine what disks to scan and if the wengine needs to be scanned (aka if its equipped, we scan it)
     """
-    pass
+    disk_wheel_region = (
+        int(0.5 * screenWidth),  # left
+        int(0.15 * screenHeight),  # top
+        int(0.45 * screenWidth),  # width
+        int(0.7 * screenHeight),  # height
+    )
+
+    screenshot = pyautogui.screenshot(region=disk_wheel_region)
 
 
 # function to get the various screenshots for a character for later processing
@@ -1029,28 +1098,30 @@ if __name__ == "__main__":
 
     switchToZZZ()
     time.sleep(0.25)
-    wishReelIconPosition = (0.92 * screenWidth, 0.2 * screenHeight)
-    pyautogui.moveTo(wishReelIconPosition)
-    pyautogui.click()
-    time.sleep(0.25)
-    isCharacterOwned = is_character_owned(
-        resolution=screenResolution,
-        pageLoadTime=0.25,
-    )
-    print(isCharacterOwned)
-    navigate_character_details("Skills")
+    # wishReelIconPosition = (0.92 * screenWidth, 0.2 * screenHeight)
+    # pyautogui.moveTo(wishReelIconPosition)
+    # pyautogui.click()
+    # time.sleep(0.25)
+    # isCharacterOwned = is_character_owned(
+    #     resolution=screenResolution,
+    #     pageLoadTime=0.25,
+    # )
+    # print(isCharacterOwned)
+    # navigate_character_details("Skills")
     # get_characters()
     # test_snapshot()
     # get_character_snapshots(0)
     # temp = pyautogui.screenshot(
     #     region=(
-    #         int(0.54 * screenWidth),
-    #         int(0.255 * screenHeight),
-    #         int(0.24 * screenWidth),
-    #         int(0.08 * screenHeight),
+    #         int(0.5 * screenWidth),  # left
+    #         int(0.15 * screenHeight),  # top
+    #         int(0.45 * screenWidth),  # width
+    #         int(0.7 * screenHeight),  # height
     #     ),
     # )
-    # temp.save("./TestImages/test_character_name_scan.png")
+    # disks_status = get_character_disks_equipped(temp, screenResolution)
+    # print(disks_status)
+    # temp.save("./TestImages/test_character_equipment_screen.png")
     # img = preprocess_image_simple(
     #     "./TestImages/test_character_name_scan.png",
     #     save_path="./TestImages/test_character_name_scan_processed.png",

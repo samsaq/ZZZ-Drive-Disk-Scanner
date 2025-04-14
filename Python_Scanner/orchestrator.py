@@ -2,6 +2,9 @@ import sys
 import os, re, time
 from multiprocessing import Process, Queue, freeze_support
 
+import pyautogui
+from getImages import ScreenResolution
+
 # python script that controls the scanning of the disk drives
 # logging to file is handled by the the imageScanner.py and getImages.py scripts themselves
 
@@ -75,6 +78,16 @@ if __name__ == "__main__":
     freeze_support()  # Needed to prevent infinite import loop on Windows when building the exe
     overallStartTime = time.time()
 
+    # Get the screen resolution
+    screenWidth, screenHeight = pyautogui.size()
+
+    # get the screen resolution enum
+    screenResolution = (
+        ScreenResolution.RES_1440P
+        if screenWidth == 2560
+        else ScreenResolution.RES_1080P
+    )
+
     # get current directory so we can return to it later
     current_directory = os.getcwd()
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -89,7 +102,7 @@ if __name__ == "__main__":
 
     pageLoadTime = 2
     discScanTime = 0.25
-    scantype = "All"
+    scantype = "Character"
 
     if len(sys.argv) == 3:
         pageLoadTime = float(sys.argv[1])
@@ -110,7 +123,9 @@ if __name__ == "__main__":
         target=getImages,
         args=((image_queue), (pageLoadTime), (discScanTime), (scantype)),
     )
-    image_scanner_process = Process(target=imageScanner, args=(image_queue,))
+    image_scanner_process = Process(
+        target=imageScanner, args=((image_queue), (screenResolution))
+    )
 
     get_images_process.start()
     image_scanner_process.start()

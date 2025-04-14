@@ -82,6 +82,7 @@ valid_weapon_names = [
     "Slice of Time",
     "Spectral Gaze",
     "Spring Embrace",
+    "Starlight Engine",
     "Starlight Engine Replica",
     "Steam Oven",
     "Steel Cushion",

@@ -181,6 +181,19 @@ def is_character_owned(
         return False
 
 
+def get_character_equipment_status():
+    """
+    Get the equipment status of the current character - do they have all disks equipped, is the wengine equipped, etc.
+
+    Args:
+        None
+
+    Returns:
+        dict: A dictionary containing the equipment status of the current character
+    """
+    pass
+
+
 # function to get the various screenshots for a character for later processing
 def get_character_snapshots(
     agent_num: int,
@@ -1016,25 +1029,33 @@ if __name__ == "__main__":
 
     switchToZZZ()
     time.sleep(0.25)
+    wishReelIconPosition = (0.92 * screenWidth, 0.2 * screenHeight)
+    pyautogui.moveTo(wishReelIconPosition)
+    pyautogui.click()
+    time.sleep(0.25)
+    isCharacterOwned = is_character_owned(
+        resolution=screenResolution,
+        pageLoadTime=0.25,
+    )
+    print(isCharacterOwned)
+    navigate_character_details("Skills")
     # get_characters()
     # test_snapshot()
     # get_character_snapshots(0)
-    temp = pyautogui.screenshot(
-        "test1.png",
-        region=(
-            int(0.31 * screenWidth),  # left
-            int(0.1 * screenHeight),  # top
-            int(0.2 * screenWidth),  # width
-            int(0.2 * screenHeight),  # height
-        ),
-    )
-    temp.save("./TestImages/test_character_weapon_scan.png")
-    img, rank = preprocess_character_weapon_image(
-        "./TestImages/test_character_weapon_scan.png",
-        save_path="./TestImages/test_character_weapon_scan_processed.png",
-    )
-    print("rank: ", rank)
-    print(process_character_weapon_image("./TestImages/test_character_weapon_scan.png"))
+    # temp = pyautogui.screenshot(
+    #     region=(
+    #         int(0.54 * screenWidth),
+    #         int(0.255 * screenHeight),
+    #         int(0.24 * screenWidth),
+    #         int(0.08 * screenHeight),
+    #     ),
+    # )
+    # temp.save("./TestImages/test_character_name_scan.png")
+    # img = preprocess_image_simple(
+    #     "./TestImages/test_character_name_scan.png",
+    #     save_path="./TestImages/test_character_name_scan_processed.png",
+    # )
+    # print(process_name_image("./TestImages/test_character_name_scan.png"))
     # print(process_skill_image("./TestImages/test.png", coreSkill=False))
     # print(process_skill_image("./TestImages/test1.png", coreSkill=True))
     # print(process_character_disk_image("./TestImages/testDisc.png", 1))

@@ -844,19 +844,19 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                     print("--------------------------------------------------")
             elif current_scan_type == "Character":
                 cur_character_data = {}
-                if image_path.contains("name"):
+                if "name" in image_path:
                     cur_character_data["name"] = process_name_image(image_path)
-                elif image_path.contains("level"):
+                elif "level" in image_path:
                     curLevel, curMaxLevel = process_level_image(image_path)
                     cur_character_data["level"] = curLevel
                     cur_character_data["max_level"] = curMaxLevel
-                elif image_path.contains("skill"):
+                elif "skill" in image_path:
                     cur_skill_name = image_path.split("_skill_")[1].split("_")[0]
                     isCoreSkill = cur_skill_name == "core"
                     cur_character_data[cur_skill_name + "_level"] = process_skill_image(
                         image_path, isCoreSkill
                     )
-                elif image_path.contains("weapon"):
+                elif "weapon" in image_path:
                     cur_character_data["weapon"] = process_character_weapon_image(
                         resolution=resolution, image_path=image_path
                     )
@@ -864,11 +864,11 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                     cur_character_data = (
                         {}
                     )  # weapon is the final data point for a character
-                elif image_path.contains("cinema"):
+                elif "cinema" in image_path:
                     cur_character_data["mindscape_level"] = process_cinema_image(
                         resolution=resolution, image_path=image_path
                     )
-                elif image_path.contains("disk"):
+                elif "disk" in image_path:
                     # grab the partition number from the image path in form f"./{outputFolder}/agent_{characterNumber}_partition_{paritionNumber}_scan.png"
                     partition_number = image_path.split("_partition_")[1].split(
                         "_scan"

@@ -19,8 +19,7 @@ This branch is working to add weapon data (wengines, upgrade levels (weapon fusi
 ### TODOs
 
 1. The character scanner needs to handle cases where some disk drives / the wengine isn't equipped
-2. We need the 1440p images for this case
-3. Consider finding an alternative method of image matching that is not practically resolution dependent
-4. Add a periodic check to see if a new version of the scanner is available on github so folks don't use an out of date version
-5. Seperate out set strings and similar data that is changed version to version from validMetaData into a seperate json file
-6. See if we can get that version data JSON to be downloadable-on-click from the electron frontend if a new version is available (and no other code changes are present between versions)
+2. Consider finding an alternative method of image matching that is not practically resolution dependent
+3. Add a periodic check to see if a new version of the scanner is available on github so folks don't use an out of date version
+4. Seperate out set strings and similar data that is changed version to version from validMetaData into a seperate json file
+5. See if we can get that version data JSON to be downloadable-on-click from the electron frontend if a new version is available (and no other code changes are present between versions)

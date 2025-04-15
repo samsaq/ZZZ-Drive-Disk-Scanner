@@ -303,10 +303,10 @@ def preprocess_level_image(image_path: str, save_path: str = None):
 
     # part of the level text we later want to extract is black, so we need to grab the subsection
     height, width = image.shape[:2]
-    subsection_height = int(0.6 * height)  # 0.8 - 0.2 = 0.6
-    subsection_width = int(0.325 * width)  # 1 - 0.675 = 0.325
+    subsection_height = int(0.6 * height)
+    subsection_width = int(0.29 * width)
     y_start = int(0.2 * height)
-    x_start = int(0.675 * width)
+    x_start = int(0.45 * width)
 
     level_text_subsection = image[
         y_start : y_start + subsection_height,
@@ -347,6 +347,10 @@ def preprocess_level_image(image_path: str, save_path: str = None):
         255,
         cv2.THRESH_BINARY,
     )[1]
+
+    # black the rightmost 20% of the image (Where the >> level up icon or MAX text is)
+    height, width = binary_image.shape[:2]
+    binary_image[:, int(0.8 * width) :] = 0
 
     # NOTE: We aren't resizing the image here like in the other preprocess_images.py functions
     # This is because the font size already varies between characters, and I don't want to have to set a resize width per character

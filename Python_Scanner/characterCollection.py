@@ -334,9 +334,23 @@ def get_character_snapshots(
     target_folder: str = "Target_Images",
     output_folder: str = "scan_input",
     resolution: ScreenResolution = screenResolution,
-    pageLoadTime: float = 0.25,
+    pageLoadTime: float = 2,
+    scanTime: float = 0.25,
     getEquipment: bool = True,
 ):
+    """
+    Get the various screenshots for a character for later processing
+
+    Args:
+        agent_num (int): The number of the character to get the snapshots for
+        queue (Queue, optional): The queue to put the image paths and status updates into for the image scanner process, REQUIRED if we want to scan the disks
+        target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
+        output_folder (str, optional): The folder to save the screenshots in, defaults to "scan_input"
+        resolution (ScreenResolution, optional): The current screen resolution, defaults to screenResolution provided globally
+        pageLoadTime (float, optional): The time to wait for the page to load, defaults to 2
+        scanTime (float, optional): The time to wait for the disk drive to load, defaults to 0.25
+        getEquipment (bool, optional): Whether to get the equipment status of the character, defaults to True
+    """
     # create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -345,10 +359,11 @@ def get_character_snapshots(
     exitButtonPosition = (0.06 * screenWidth, 0.05 * screenHeight)
     pyautogui.moveTo(wishReelIconPosition)
     pyautogui.click()
-    time.sleep(pageLoadTime)
+    time.sleep(scanTime)
 
     if not is_character_owned(target_folder, resolution, pageLoadTime):
-        return
+        return True
+    time.sleep(scanTime * 2)
 
     name_region = (
         int(0.54 * screenWidth),
@@ -360,7 +375,7 @@ def get_character_snapshots(
     level_region = (
         int(0.54 * screenWidth),
         int(0.4 * screenHeight),
-        int(0.24 * screenWidth),
+        int(0.18 * screenWidth),
         int(0.08 * screenHeight),
     )
 
@@ -405,20 +420,20 @@ def get_character_snapshots(
         "chain_attack",
         "core",
     ]
-    time.sleep(pageLoadTime * 4)  # this takes a bit longer to load typically
+    time.sleep(pageLoadTime)  # this takes a bit longer to load typically
     pyautogui.moveTo(skill_start_pos)
     pyautogui.click()
-    time.sleep(pageLoadTime)
+    time.sleep(scanTime)
     screenshot = pyautogui.screenshot(region=skill_region)
     screenshot.save(f"./{output_folder}/agent_{agent_num}_skill_{skill_names[0]}.png")
     if queue:
         queue.put(f"./{output_folder}/agent_{agent_num}_skill_{skill_names[0]}.png")
-    time.sleep(pageLoadTime)
+    time.sleep(scanTime)
 
     for i in range(4):
         pyautogui.moveRel(horz_skill_dist, 0)
         pyautogui.click()
-        time.sleep(pageLoadTime)
+        time.sleep(scanTime)
         screenshot = pyautogui.screenshot(region=skill_region)
         screenshot.save(
             f"./{output_folder}/agent_{agent_num}_skill_{skill_names[i+1]}.png"
@@ -429,19 +444,19 @@ def get_character_snapshots(
             )
     pyautogui.moveRel(0, -vert_dist_to_core_skill)
     pyautogui.click()
-    time.sleep(pageLoadTime)
+    time.sleep(scanTime)
     screenshot = pyautogui.screenshot(region=skill_region)
     screenshot.save(f"./{output_folder}/agent_{agent_num}_skill_{skill_names[5]}.png")
     if queue:
         queue.put(f"./{output_folder}/agent_{agent_num}_skill_{skill_names[5]}.png")
     pyautogui.moveTo(exitButtonPosition)
     pyautogui.click()
-    time.sleep(pageLoadTime)
+    time.sleep(scanTime)
 
     # grab the cinema screenshot
     navigate_character_details("Cinema")
     pyautogui.sleep(
-        pageLoadTime * 8
+        pageLoadTime
     )  # this specific screen has a rather slow transition animation
     screenshot = (
         pyautogui.screenshot()
@@ -451,45 +466,56 @@ def get_character_snapshots(
         queue.put(f"./{output_folder}/agent_{agent_num}_cinema.png")
     pyautogui.moveTo(exitButtonPosition)
     pyautogui.click()
-    time.sleep(pageLoadTime)
+    time.sleep(scanTime)
 
-    # get a snapshot of each equipped disk
+    # Get a snapshot of all character equipment that is in use
     if getEquipment:
         navigate_character_details("Equipment")
-        time.sleep(pageLoadTime)
-        selectParition(1)
-        scanDiskDriveCharacter(1, queue, pageLoadTime, output_folder, agent_num)
-        time.sleep(pageLoadTime)
-        selectParition(2)
-        scanDiskDriveCharacter(2, queue, pageLoadTime, output_folder, agent_num)
-        time.sleep(pageLoadTime)
-        selectParition(3)
-        scanDiskDriveCharacter(3, queue, pageLoadTime, output_folder, agent_num)
-        time.sleep(pageLoadTime)
-        selectParition(4)
-        scanDiskDriveCharacter(4, queue, pageLoadTime, output_folder, agent_num)
-        time.sleep(pageLoadTime)
-        selectParition(5)
-        scanDiskDriveCharacter(5, queue, pageLoadTime, output_folder, agent_num)
-        time.sleep(pageLoadTime)
-        selectParition(6)
-        scanDiskDriveCharacter(6, queue, pageLoadTime, output_folder, agent_num)
-        time.sleep(pageLoadTime)
-        pyautogui.moveTo(exitButtonPosition)
-        pyautogui.click()
-        time.sleep(pageLoadTime)
-        # now to scan the agent's weapon
-        weapon_position = (0.725 * screenWidth, 0.5 * screenHeight)
-        pyautogui.moveTo(weapon_position)
-        pyautogui.click()
-        time.sleep(pageLoadTime * 4)  # this takes a bit longer
-        screenshot = pyautogui.screenshot(region=weapon_region)
-        screenshot.save(f"./{output_folder}/agent_{agent_num}_weapon.png")
+        time.sleep(scanTime)
+
+        # check what equipment is equipped
+        equipment_status = get_character_equipment_status(resolution, scanTime)
+        print(equipment_status)
+        time.sleep(scanTime)
+
+        # Format the equipment status for the queue
+        status_parts = [f"weapon_{equipment_status['wengine_equipped']}"]
+        for i, disk_equipped in enumerate(equipment_status["disks_equipped"], 1):
+            status_parts.append(f"disk{i}_{disk_equipped}")
+
+        status_string = f"status: {', '.join(status_parts)}"
+
+        # Send the status through the queue to the scanner
         if queue:
-            queue.put(f"./{output_folder}/agent_{agent_num}_weapon.png")
+            queue.put(status_string)
+
+        # Scan only equipped disks
+        for disk_num, is_equipped in enumerate(equipment_status["disks_equipped"], 1):
+            if is_equipped:
+                selectParition(disk_num)
+                scanDiskDriveCharacter(
+                    disk_num, queue, scanTime, output_folder, agent_num
+                )
+                time.sleep(scanTime)
+
         pyautogui.moveTo(exitButtonPosition)
         pyautogui.click()
-        time.sleep(pageLoadTime)
+        time.sleep(scanTime)
+
+        # Scan the weapon only if it's equipped
+        if equipment_status["wengine_equipped"]:
+            # Scan the agent's weapon
+            weapon_position = (0.725 * screenWidth, 0.5 * screenHeight)
+            pyautogui.moveTo(weapon_position)
+            pyautogui.click()
+            time.sleep(pageLoadTime)  # This takes a bit longer
+            screenshot = pyautogui.screenshot(region=weapon_region)
+            screenshot.save(f"./{output_folder}/agent_{agent_num}_weapon.png")
+            if queue:
+                queue.put(f"./{output_folder}/agent_{agent_num}_weapon.png")
+            pyautogui.moveTo(exitButtonPosition)
+            pyautogui.click()
+            time.sleep(scanTime)
 
 
 # intended to be a main function of sorts to be called in getImages.py for character image collection
@@ -661,10 +687,10 @@ def preprocess_level_image(image_path: str, save_path: str = None):
 
     # part of the level text we later want to extract is black, so we need to grab the subsection
     height, width = image.shape[:2]
-    subsection_height = int(0.6 * height)  # 0.8 - 0.2 = 0.6
-    subsection_width = int(0.325 * width)  # 1 - 0.675 = 0.325
+    subsection_height = int(0.6 * height)
+    subsection_width = int(0.29 * width)
     y_start = int(0.2 * height)
-    x_start = int(0.675 * width)
+    x_start = int(0.45 * width)
 
     level_text_subsection = image[
         y_start : y_start + subsection_height,
@@ -705,6 +731,10 @@ def preprocess_level_image(image_path: str, save_path: str = None):
         255,
         cv2.THRESH_BINARY,
     )[1]
+
+    # black the rightmost 20% of the image (Where the >> level up icon or MAX text is)
+    height, width = binary_image.shape[:2]
+    binary_image[:, int(0.8 * width) :] = 0
 
     # NOTE: We aren't resizing the image here like in the other preprocess_images.py functions
     # This is because the font size already varies between characters, and I don't want to have to set a resize width per character
@@ -1162,6 +1192,10 @@ if __name__ == "__main__":
 
     switchToZZZ()
     time.sleep(0.25)
+    # get_character_snapshots(
+    #     agent_num=0,
+    #     resolution=screenResolution,
+    # )
     # wishReelIconPosition = (0.92 * screenWidth, 0.2 * screenHeight)
     # pyautogui.moveTo(wishReelIconPosition)
     # pyautogui.click()
@@ -1177,27 +1211,27 @@ if __name__ == "__main__":
     # get_character_snapshots(0)
     # mouseposTest = (0.725 * screenWidth, 0.5 * screenHeight)
     # pyautogui.moveTo(mouseposTest)
-    # temp = pyautogui.screenshot(
-    #     region=(
-    #         int(0.7 * screenWidth),  # left
-    #         int(0.91 * screenHeight),  # top
-    #         int(0.15 * screenWidth),  # width
-    #         int(0.075 * screenHeight),  # height
-    #     ),
-    # )
-    # disks_status = get_character_disks_equipped(temp, screenResolution)
-    is_wengine_equipped = is_character_wengine_equipped(
-        resolution=screenResolution,
-        waitTime=1,
+    temp = pyautogui.screenshot(
+        region=(
+            int(0.375 * screenWidth),
+            int(0.145 * screenHeight),
+            int(0.1 * screenWidth),
+            int(0.06 * screenHeight),
+        ),
     )
-    print(is_wengine_equipped)
-    # print(disks_status)
-    # temp.save("./TestImages/test_character_remove_region.png")
-    # img = preprocess_image_simple(
-    #     "./TestImages/test_character_name_scan.png",
-    #     save_path="./TestImages/test_character_name_scan_processed.png",
+    # disks_status = get_character_disks_equipped(temp, screenResolution)
+    # is_wengine_equipped = is_character_wengine_equipped(
+    #     resolution=screenResolution,
+    #     waitTime=1,
     # )
-    # print(process_name_image("./TestImages/test_character_name_scan.png"))
+    # print(is_wengine_equipped)
+    # print(disks_status)
+    temp.save("./TestImages/test_character_skill.png")
+    img = preprocess_skill_image(
+        "./TestImages/test_character_skill.png",
+        save_path="./TestImages/test_character_skill_processed.png",
+    )
+    print(process_skill_image("./TestImages/test_character_skill.png", coreSkill=False))
     # print(process_skill_image("./TestImages/test.png", coreSkill=False))
     # print(process_skill_image("./TestImages/test1.png", coreSkill=True))
     # print(process_character_disk_image("./TestImages/testDisc.png", 1))

@@ -942,6 +942,25 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                         True  # cinema is the last piece of basic info collected
                     )
 
+                    # Correct the skill levels for the character based on the mindscape level
+                    # At mindscape level 3 and level 5, the skill levels (other than core) are increased
+                    skill_names = [
+                        "basic_attack",
+                        "dodge",
+                        "assist",
+                        "special_attack",
+                        "chain_attack",
+                    ]
+
+                    for skill_name in skill_names:
+                        skill_key = f"{skill_name}_level"
+                        if skill_key in cur_character_data:
+                            current_level = int(cur_character_data[skill_key])
+                            if int(cur_character_data["mindscape_level"]) >= 5:
+                                cur_character_data[skill_key] = str(current_level + 4)
+                            elif int(cur_character_data["mindscape_level"]) >= 3:
+                                cur_character_data[skill_key] = str(current_level + 2)
+
                     # If we already received equipment status and there's no equipment to scan
                     if (
                         equipment_status_received

@@ -844,7 +844,74 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                     print("--------------------------------------------------")
             elif current_scan_type == "Character":
                 cur_character_data = {}
-                if "name" in image_path:
+                cur_equipment_status = {
+                    "weapon": False,
+                    "anyDisks": False,
+                    "disks_equipped": [False, False, False, False, False, False],
+                }
+
+                # Track data completeness
+                character_data_complete = False
+                has_basic_info = False  # Name, level, skills, mindscape/cinema
+                equipment_status_received = False
+
+                if "status" in image_path:
+                    # Parse the equipmentstatus string that will be in the format
+                    # "status: weapon_true, disk1_true, disk2_false, disk3_true, disk4_false, disk5_true, disk6_false"
+                    equipment_status_received = True
+                    # Parse the equipmentstatus string
+                    status_string = image_path.split("status: ")[1]
+                    status_parts = status_string.split(", ")
+
+                    for part in status_parts:
+                        if part.startswith("weapon_"):
+                            # Parse weapon status
+                            weapon_status = part.split("weapon_")[1].lower() == "true"
+                            cur_equipment_status["weapon"] = weapon_status
+                        elif part.startswith("disk"):
+                            # Parse disk status - format is "disk1_true", "disk2_false", etc.
+                            disk_num = int(part[4:5]) - 1  # Convert to 0-based index
+                            disk_status = part.split("_")[1].lower() == "true"
+
+                            # Update the corresponding disk status
+                            if 0 <= disk_num < 6:  # Ensure valid disk number
+                                cur_equipment_status["disks_equipped"][
+                                    disk_num
+                                ] = disk_status
+
+                                # If any disk is equipped, set anyDisks to True
+                                if disk_status:
+                                    cur_equipment_status["anyDisks"] = True
+
+                    # Now we have the complete equipment status in cur_equipment_status
+                    # We can use this to decide which disk images to process and whether to handle the weapon
+
+                    # Initialize empty disk slots in the character data structure
+                    for disk_num, is_equipped in enumerate(
+                        cur_equipment_status["disks_equipped"], 1
+                    ):
+                        if not is_equipped:
+                            # Create empty disk data for unequipped slots
+                            cur_character_data[f"disk_{disk_num}"] = {}
+
+                    # Handle weapon status
+                    if not cur_equipment_status["weapon"]:
+                        # If weapon is not equipped, create empty weapon data
+                        cur_character_data["weapon"] = {}
+
+                    # Check if we already have all the basic character info
+                    if has_basic_info:
+                        # If we have both equipment status and basic info, and no equipment to scan
+                        if (
+                            not cur_equipment_status["weapon"]
+                            and not cur_equipment_status["anyDisks"]
+                        ):
+                            # No equipment to scan, character data is complete
+                            character_data.append(cur_character_data)
+                            cur_character_data = {}
+                            character_data_complete = True
+
+                elif "name" in image_path:
                     cur_character_data["name"] = process_name_image(image_path)
                 elif "level" in image_path:
                     curLevel, curMaxLevel = process_level_image(image_path)
@@ -856,28 +923,91 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                     cur_character_data[cur_skill_name + "_level"] = process_skill_image(
                         image_path, isCoreSkill
                     )
-                elif "weapon" in image_path:
-                    cur_character_data["weapon"] = process_character_weapon_image(
-                        resolution=resolution, image_path=image_path
-                    )
+                elif "weapon" in image_path and not character_data_complete:
+                    # Only process if we haven't already completed this character
+                    if cur_equipment_status["weapon"]:
+                        cur_character_data["weapon"] = process_character_weapon_image(
+                            resolution=resolution, image_path=image_path
+                        )
+                    # Weapon is the last piece of data to be collected, so we can append the character data and reset the character data structure
                     character_data.append(cur_character_data)
-                    cur_character_data = (
-                        {}
-                    )  # weapon is the final data point for a character
+                    cur_character_data = {}
+                    character_data_complete = True
+
                 elif "cinema" in image_path:
                     cur_character_data["mindscape_level"] = process_cinema_image(
                         resolution=resolution, image_path=image_path
                     )
-                elif "disk" in image_path:
-                    # grab the partition number from the image path in form f"./{outputFolder}/agent_{characterNumber}_partition_{paritionNumber}_scan.png"
+                    has_basic_info = (
+                        True  # cinema is the last piece of basic info collected
+                    )
+
+                    # If we already received equipment status and there's no equipment to scan
+                    if (
+                        equipment_status_received
+                        and not cur_equipment_status["weapon"]
+                        and not cur_equipment_status["anyDisks"]
+                    ):
+                        # No equipment to scan, character data is complete
+                        character_data.append(cur_character_data)
+                        cur_character_data = {}
+                        character_data_complete = True
+
+                elif "disk" in image_path and not character_data_complete:
+                    # Only process if we haven't already completed this character
+                    # grab the partition number from the image path
                     partition_number = image_path.split("_partition_")[1].split(
                         "_scan"
                     )[0]
-                    cur_character_data["disk_" + partition_number] = (
-                        process_character_disk_image(
-                            image_path=image_path, partition_number=partition_number
+
+                    # Only process if this disk should be equipped
+                    disk_index = int(partition_number) - 1
+                    if (
+                        0 <= disk_index < 6
+                        and cur_equipment_status["disks_equipped"][disk_index]
+                    ):
+                        cur_character_data[f"disk_{partition_number}"] = (
+                            process_character_disk_image(
+                                image_path=image_path, partition_number=partition_number
+                            )
                         )
+
+                    # Check if this was the last piece we were waiting for
+                    equipped_disk_indices = [
+                        i
+                        for i, equipped in enumerate(
+                            cur_equipment_status["disks_equipped"]
+                        )
+                        if equipped
+                    ]
+                    equipped_disk_keys = [
+                        f"disk_{i+1}" for i in equipped_disk_indices
+                    ]  # Convert to 1-based keys
+
+                    # Check if all equipped disks have been processed (not just initialized)
+                    all_equipped_disks_processed = True
+                    for disk_key in equipped_disk_keys:
+                        # If the disk is equipped, it should have more than just an empty dict
+                        if (
+                            disk_key not in cur_character_data
+                            or not cur_character_data[disk_key]
+                            or len(cur_character_data[disk_key]) <= 1
+                        ):
+                            all_equipped_disks_processed = False
+                            break
+
+                    # Check if weapon is processed if it's equipped
+                    weapon_processed = (not cur_equipment_status["weapon"]) or (
+                        "weapon" in cur_character_data
+                        and cur_character_data["weapon"]
+                        and len(cur_character_data["weapon"]) > 1
                     )
+
+                    if all_equipped_disks_processed and weapon_processed:
+                        # All equipped items have been fully processed
+                        character_data.append(cur_character_data)
+                        cur_character_data = {}
+                        character_data_complete = True
 
     # write the data to a JSON file for later use inside of the scan_output folder
     logging.info("Finished processing. Writing scan data to file")

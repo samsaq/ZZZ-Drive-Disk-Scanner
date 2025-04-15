@@ -514,7 +514,7 @@ def process_character_disk_image(image_path: str, partition_number: int) -> dict
     if valid_disk_drive:
         return result_metadata
     else:
-        print(f"Error: Disk is not valid: {error_message}")
+        logging.error(f"Error: Scanned character disk is not valid: {error_message}")
         return {}
 
 
@@ -570,7 +570,7 @@ def process_cinema_image(
     # load the main image
     image = cv2.imread(image_path)
     if image is None:
-        print(f"Error: Could not load image at {image_path}")
+        logging.error(f"Error: Could not load cinema image at {image_path}")
         return None
 
     # check if the image has locked mindscape icons
@@ -581,7 +581,9 @@ def process_cinema_image(
         )
         template = cv2.imread(current_image_path)
         if template is None:
-            print(f"Error: Could not load template at {current_image_path}")
+            logging.error(
+                f"Error: Could not load cinema mindscape locked template at {current_image_path}, skipping it"
+            )
             continue
 
         # Perform template matching
@@ -626,7 +628,7 @@ def process_skill_image(image_path: str, coreSkill: bool = False) -> str:
         if oneDigit:
             text = oneDigit.group(0)
         else:
-            print(f"Could not parse skill level from text: {text}")
+            logging.error(f"Error: Could not parse skill level from text: {text}")
             return None
 
     # correction step: if not a core skill, it can be between 1 and 16, else 1 and 7
@@ -698,8 +700,8 @@ def process_level_image(image_path: str) -> tuple[str, str]:
             current_level = match.group(1)
             max_level = match.group(2)
         else:
-            print(f"Could not parse levels from text: {text[0]}")
-            print("Assuming max leveled character (60/60)")
+            logging.error(f"Error: Could not parse levels from text: {text[0]}")
+            logging.warning("Assuming max leveled character (60/60)")
             current_level = "60"
             max_level = "60"
     else:
@@ -743,7 +745,9 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
     disk_data = []
     wengine_data = []
     character_data = []
-    imagenum = 0
+    diskNum = 0
+    wengineNum = 0
+    characterNum = 0
     consecutive_errors = 0
     logging.info("Ready to process disk drives")
     getImagesDone = False
@@ -765,7 +769,7 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                         "Failed to get to the equipment screen - try increasing the page load time"
                     )
                     sys.exit(1)
-                logging.info(f"Processing disk drive # {imagenum}, at {image_path}")
+                logging.info(f"Processing disk drive # {diskNum}, at {image_path}")
                 if debug:
                     print(f"Processing {image_path}")
                 try:
@@ -775,9 +779,7 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                     result = scan_image(processed_image)
                     result_metadata = extract_metadata(result, image_path)
                 except Exception as e:
-                    logging.error(
-                        f"Error analyzing drive #{imagenum}, skipping it: {e}"
-                    )
+                    logging.error(f"Error analyzing drive #{diskNum}, skipping it: {e}")
                     consecutive_errors += 1
                     # if we have more than 10 consecutive errors, stop the program and log it - probably wrong timing settings
                     if consecutive_errors > 10:
@@ -800,17 +802,17 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                     disk_data.append(result_metadata)
                 else:
                     logging.error(
-                        f"Disk drive #{imagenum} failed validation, skipping: {error_message}"
+                        f"Disk drive #{diskNum} failed validation, skipping: {error_message}"
                     )
-                logging.info(f"Finished processing disk drive #{imagenum}")
+                logging.info(f"Finished processing disk drive #{diskNum}")
                 consecutive_errors = 0
-                imagenum += 1
+                diskNum += 1
                 if debug:  # log out the output
                     for key, value in result_metadata.items():
                         print(f"{key}: {value}")
                     print("--------------------------------------------------")
             elif current_scan_type == "WEngine":
-                logging.info(f"Processing wengine # {imagenum}, at {image_path}")
+                logging.info(f"Processing wengine # {wengineNum}, at {image_path}")
                 if debug:
                     print(f"Processing {image_path}")
                 try:
@@ -825,7 +827,7 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                     wengine_data.append(result_metadata)
                 except Exception as e:
                     logging.error(
-                        f"Error analyzing wengine #{imagenum}, skipping it: {e}"
+                        f"Error analyzing wengine #{wengineNum}, skipping it: {e}"
                     )
                     consecutive_errors += 1
                     # if we have more than 10 consecutive errors, stop the program and log it - probably wrong timing settings
@@ -835,27 +837,36 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                         )
                         sys.exit(1)
                     continue
-                logging.info(f"Finished processing wengine #{imagenum}")
+                logging.info(f"Finished processing wengine #{wengineNum}")
                 consecutive_errors = 0
-                imagenum += 1
+                wengineNum += 1
                 if debug:  # log out the output
                     for key, value in result_metadata.items():
                         print(f"{key}: {value}")
                     print("--------------------------------------------------")
             elif current_scan_type == "Character":
-                cur_character_data = {}
-                cur_equipment_status = {
-                    "weapon": False,
-                    "anyDisks": False,
-                    "disks_equipped": [False, False, False, False, False, False],
-                }
+                # Initialize equipment status if needed (only for new characters)
+                if "name" in image_path:
+                    # Starting a new character
+                    cur_character_data = {}
+                    cur_equipment_status = {
+                        "weapon": False,
+                        "anyDisks": False,
+                        "disks_equipped": [False, False, False, False, False, False],
+                    }
+                    character_data_complete = False
+                    has_basic_info = False
+                    equipment_status_received = False
+                    logging.info(
+                        f"Processing for new character #{characterNum}, at {image_path}"
+                    )
 
-                # Track data completeness
-                character_data_complete = False
-                has_basic_info = False  # Name, level, skills, mindscape/cinema
-                equipment_status_received = False
+                    # Process name image
+                    cur_character_data["name"] = process_name_image(image_path)
 
-                if "status" in image_path:
+                # Then continue with the existing code paths for other image types
+                elif "status" in image_path:
+                    # Parse equipment status...
                     # Parse the equipmentstatus string that will be in the format
                     # "status: weapon_true, disk1_true, disk2_false, disk3_true, disk4_false, disk5_true, disk6_false"
                     equipment_status_received = True
@@ -910,9 +921,10 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                             character_data.append(cur_character_data)
                             cur_character_data = {}
                             character_data_complete = True
-
-                elif "name" in image_path:
-                    cur_character_data["name"] = process_name_image(image_path)
+                            logging.info(
+                                f"Finished processing character #{characterNum}, at {image_path}"
+                            )
+                            characterNum += 1
                 elif "level" in image_path:
                     curLevel, curMaxLevel = process_level_image(image_path)
                     cur_character_data["level"] = curLevel
@@ -933,7 +945,10 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                     character_data.append(cur_character_data)
                     cur_character_data = {}
                     character_data_complete = True
-
+                    logging.info(
+                        f"Finished processing character #{characterNum}, at {image_path}"
+                    )
+                    characterNum += 1
                 elif "cinema" in image_path:
                     cur_character_data["mindscape_level"] = process_cinema_image(
                         resolution=resolution, image_path=image_path
@@ -971,6 +986,10 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                         character_data.append(cur_character_data)
                         cur_character_data = {}
                         character_data_complete = True
+                        logging.info(
+                            f"Finished processing character #{characterNum}, who had no equipment to scan"
+                        )
+                        characterNum += 1
 
                 elif "disk" in image_path and not character_data_complete:
                     # Only process if we haven't already completed this character
@@ -1027,6 +1046,10 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                         character_data.append(cur_character_data)
                         cur_character_data = {}
                         character_data_complete = True
+                        logging.info(
+                            f"Processing character #{characterNum}, at {image_path} finished"
+                        )
+                        characterNum += 1
 
     # write the data to a JSON file for later use inside of the scan_output folder
     logging.info("Finished processing. Writing scan data to file")

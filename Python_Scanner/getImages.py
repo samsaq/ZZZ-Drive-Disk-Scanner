@@ -829,6 +829,19 @@ def get_character_snapshots(
     scanTime: float = 0.25,
     getEquipment: bool = True,
 ):
+    """
+    Get the various screenshots for a character for later processing
+
+    Args:
+        agent_num (int): The number of the character to get the snapshots for
+        queue (Queue, optional): The queue to put the image paths and status updates into for the image scanner process, REQUIRED if we want to scan the disks
+        target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
+        output_folder (str, optional): The folder to save the screenshots in, defaults to "scan_input"
+        resolution (ScreenResolution, optional): The current screen resolution, defaults to screenResolution provided globally
+        pageLoadTime (float, optional): The time to wait for the page to load, defaults to 2
+        scanTime (float, optional): The time to wait for the disk drive to load, defaults to 0.25
+        getEquipment (bool, optional): Whether to get the equipment status of the character, defaults to True
+    """
     # create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -853,7 +866,7 @@ def get_character_snapshots(
     level_region = (
         int(0.54 * screenWidth),
         int(0.4 * screenHeight),
-        int(0.24 * screenWidth),
+        int(0.18 * screenWidth),
         int(0.08 * screenHeight),
     )
 
@@ -946,25 +959,25 @@ def get_character_snapshots(
     pyautogui.click()
     time.sleep(scanTime)
 
-    # check what equipment is equipped
-    equipment_status = get_character_equipment_status(resolution, scanTime)
-    time.sleep(scanTime)
-
-    # Format the equipment status for the queue
-    status_parts = [f"weapon_{equipment_status['wengine_equipped']}"]
-    for i, disk_equipped in enumerate(equipment_status["disks_equipped"], 1):
-        status_parts.append(f"disk{i}_{disk_equipped}")
-
-    status_string = f"status: {', '.join(status_parts)}"
-
-    # Send the status through the queue to the scanner
-    if queue:
-        queue.put(status_string)
-
     # Get a snapshot of all character equipment that is in use
     if getEquipment:
         navigate_character_details("Equipment")
         time.sleep(scanTime)
+
+        # check what equipment is equipped
+        equipment_status = get_character_equipment_status(resolution, scanTime)
+        time.sleep(scanTime)
+
+        # Format the equipment status for the queue
+        status_parts = [f"weapon_{equipment_status['wengine_equipped']}"]
+        for i, disk_equipped in enumerate(equipment_status["disks_equipped"], 1):
+            status_parts.append(f"disk{i}_{disk_equipped}")
+
+        status_string = f"status: {', '.join(status_parts)}"
+
+        # Send the status through the queue to the scanner
+        if queue:
+            queue.put(status_string)
 
         # Scan only equipped disks
         for disk_num, is_equipped in enumerate(equipment_status["disks_equipped"], 1):

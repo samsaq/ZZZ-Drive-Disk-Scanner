@@ -2,6 +2,9 @@ import math
 import os
 import time
 import sys
+import PIL
+import cv2
+import numpy as np
 import pyautogui
 import logging
 import keyboard
@@ -671,6 +674,150 @@ def is_character_owned(
         return False
 
 
+def get_character_disks_equipped(
+    screenshot: PIL.Image.Image,
+    resolution: ScreenResolution,
+    target_folder: str = "Target_Images",
+) -> list[bool]:
+    """
+    Get the disks equipped of the current character from an image of the equipment screen
+
+    Args:
+        screenshot (PIL.Image.Image): The screenshot of the equipment screen to check from pyautogui.screenshot()
+        resolution (ScreenResolution): The current screen resolution
+        target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
+
+    Returns:
+        list[bool]: A list of size 6 (which disks are equipped, each is true if equipped)
+
+    Usage:
+        Used in get_character_equipment_status() to determine what disks are available to scan
+    """
+    resolution_suffix = (
+        "-1440p" if resolution == ScreenResolution.RES_1440P else "-1080p"
+    )
+    disk_targets = [
+        f"./{target_folder}/zzz-character-equipment-no-disk-{i}{resolution_suffix}.png"
+        for i in range(1, 7)
+    ]
+
+    # Convert PIL Image to cv2 format
+    screenshot_cv = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+
+    # For each disk_target, check if it matches in the screenshot
+    disks_equipped = []
+    for disk_target in disk_targets:
+        # Load the template image
+        template = cv2.imread(disk_target)
+        if template is None:
+            print(f"Warning: Could not load disk template {disk_target}")
+            disks_equipped.append(True)  # Assume equipped if template can't be loaded
+            continue
+
+        # Perform template matching
+        result = cv2.matchTemplate(screenshot_cv, template, cv2.TM_CCOEFF_NORMED)
+        max_val = result.max()
+
+        # If we found a good match
+        # then the disk is NOT equipped, so we negate the result
+        disks_equipped.append(not (max_val >= 0.9))
+
+    return disks_equipped
+
+
+def is_character_wengine_equipped(
+    resolution: ScreenResolution,
+    waitTime: float = 0.25,
+    target_folder: str = "Target_Images",
+) -> bool:
+    """
+    Check if the character has a wengine equipped by clicking the wengine position and checking if the remove button is visible
+
+    Args:
+        resolution (ScreenResolution): The current screen resolution
+        waitTime (float, optional): The time to wait for the wengine to load, defaults to 0.25
+        target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
+    Returns:
+        bool: True if the wengine is equipped, False otherwise
+
+    Used In:
+        get_character_equipment_status()
+    """
+    resolution_suffix = (
+        "-1440p" if resolution == ScreenResolution.RES_1440P else "-1080p"
+    )
+    wengine_target = f"./{target_folder}/zzz-character-equipment-wengine-remove-button{resolution_suffix}.png"
+
+    wengine_position = (0.725 * screenWidth, 0.5 * screenHeight)
+    remove_button_region = (
+        int(0.7 * screenWidth),  # left
+        int(0.91 * screenHeight),  # top
+        int(0.15 * screenWidth),  # width
+        int(0.075 * screenHeight),  # height
+    )
+    pyautogui.moveTo(wengine_position)
+    pyautogui.click()
+    time.sleep(waitTime)
+    # if we can see the remove button, than a wengine is equipped to be removed in the first place
+    try:
+        is_equipped = pyautogui.locateOnScreen(
+            wengine_target, confidence=0.9, region=remove_button_region
+        )
+        is_equipped = is_equipped is not None
+    except pyautogui.ImageNotFoundException:  # expected exception in the not found case
+        is_equipped = False
+    except Exception as e:
+        print(f"Error locating wengine remove button: {e}")
+        is_equipped = False
+    finally:
+        keyboard.press("esc")
+        time.sleep(waitTime)
+    return is_equipped
+
+
+def get_character_equipment_status(
+    resolution: ScreenResolution,
+    waitTime: float = 0.25,
+    target_folder: str = "Target_Images",
+) -> dict:
+    """
+    Get the equipment status of the current character - do they have all disks equipped, is the wengine equipped, etc.
+    Triggered when we enter the character's equipment screen
+
+    Args:
+        resolution (ScreenResolution): The current screen resolution
+        waitTime (float, optional): The time to wait for the wengine to load, defaults to 0.25
+        target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
+
+    Returns:
+        dict: A dictionary containing the equipment status of the current character in the form:
+        {
+            "all_disks_equipped": bool,
+            "wengine_equipped": bool,
+            "disks_equipped": list[bool] of size 6 (which disks are equipped, each is true if equipped)
+        }
+
+    Usage:
+        Used in get_character_snapshots() to determine what disks to scan and if the wengine needs to be scanned (aka if its equipped, we scan it)
+    """
+    disk_wheel_region = (
+        int(0.5 * screenWidth),  # left
+        int(0.15 * screenHeight),  # top
+        int(0.45 * screenWidth),  # width
+        int(0.7 * screenHeight),  # height
+    )
+
+    screenshot = pyautogui.screenshot(region=disk_wheel_region)
+    disks_equipped = get_character_disks_equipped(screenshot, screenResolution)
+    all_disks_equipped = all(disks_equipped)
+    wengine_equipped = is_character_wengine_equipped(screenResolution)
+    return {
+        "all_disks_equipped": all_disks_equipped,
+        "wengine_equipped": wengine_equipped,
+        "disks_equipped": disks_equipped,
+    }
+
+
 # function to get the various screenshots for a character for later processing
 def get_character_snapshots(
     agent_num: int,
@@ -799,43 +946,53 @@ def get_character_snapshots(
     pyautogui.click()
     time.sleep(scanTime)
 
-    # get a snapshot of each equipped disk
+    # check what equipment is equipped
+    equipment_status = get_character_equipment_status(resolution, scanTime)
+    time.sleep(scanTime)
+
+    # Format the equipment status for the queue
+    status_parts = [f"weapon_{equipment_status['wengine_equipped']}"]
+    for i, disk_equipped in enumerate(equipment_status["disks_equipped"], 1):
+        status_parts.append(f"disk{i}_{disk_equipped}")
+
+    status_string = f"status: {', '.join(status_parts)}"
+
+    # Send the status through the queue to the scanner
+    if queue:
+        queue.put(status_string)
+
+    # Get a snapshot of all character equipment that is in use
     if getEquipment:
         navigate_character_details("Equipment")
         time.sleep(scanTime)
-        selectParition(1)
-        scanDiskDriveCharacter(1, queue, scanTime, output_folder, agent_num)
-        time.sleep(scanTime)
-        selectParition(2)
-        scanDiskDriveCharacter(2, queue, scanTime, output_folder, agent_num)
-        time.sleep(scanTime)
-        selectParition(3)
-        scanDiskDriveCharacter(3, queue, scanTime, output_folder, agent_num)
-        time.sleep(scanTime)
-        selectParition(4)
-        scanDiskDriveCharacter(4, queue, scanTime, output_folder, agent_num)
-        time.sleep(scanTime)
-        selectParition(5)
-        scanDiskDriveCharacter(5, queue, scanTime, output_folder, agent_num)
-        time.sleep(scanTime)
-        selectParition(6)
-        scanDiskDriveCharacter(6, queue, scanTime, output_folder, agent_num)
-        time.sleep(scanTime)
+
+        # Scan only equipped disks
+        for disk_num, is_equipped in enumerate(equipment_status["disks_equipped"], 1):
+            if is_equipped:
+                selectParition(disk_num)
+                scanDiskDriveCharacter(
+                    disk_num, queue, scanTime, output_folder, agent_num
+                )
+                time.sleep(scanTime)
+
         pyautogui.moveTo(exitButtonPosition)
         pyautogui.click()
         time.sleep(scanTime)
-        # now to scan the agent's weapon
-        weapon_position = (0.725 * screenWidth, 0.5 * screenHeight)
-        pyautogui.moveTo(weapon_position)
-        pyautogui.click()
-        time.sleep(pageLoadTime)  # this takes a bit longer
-        screenshot = pyautogui.screenshot(region=weapon_region)
-        screenshot.save(f"./{output_folder}/agent_{agent_num}_weapon.png")
-        if queue:
-            queue.put(f"./{output_folder}/agent_{agent_num}_weapon.png")
-        pyautogui.moveTo(exitButtonPosition)
-        pyautogui.click()
-        time.sleep(scanTime)
+
+        # Scan the weapon only if it's equipped
+        if equipment_status["wengine_equipped"]:
+            # Scan the agent's weapon
+            weapon_position = (0.725 * screenWidth, 0.5 * screenHeight)
+            pyautogui.moveTo(weapon_position)
+            pyautogui.click()
+            time.sleep(pageLoadTime)  # This takes a bit longer
+            screenshot = pyautogui.screenshot(region=weapon_region)
+            screenshot.save(f"./{output_folder}/agent_{agent_num}_weapon.png")
+            if queue:
+                queue.put(f"./{output_folder}/agent_{agent_num}_weapon.png")
+            pyautogui.moveTo(exitButtonPosition)
+            pyautogui.click()
+            time.sleep(scanTime)
 
 
 # intended to be a main function of sorts to be called in getImages.py for character image collection

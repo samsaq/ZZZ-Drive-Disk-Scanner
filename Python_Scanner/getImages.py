@@ -727,7 +727,7 @@ def get_character_disks_equipped(
 
 def is_character_wengine_equipped(
     resolution: ScreenResolution,
-    waitTime: float = 0.25,
+    waitTime: float = 0.5,
     target_folder: str = "Target_Images",
 ) -> bool:
     """
@@ -735,7 +735,7 @@ def is_character_wengine_equipped(
 
     Args:
         resolution (ScreenResolution): The current screen resolution
-        waitTime (float, optional): The time to wait for the wengine to load, defaults to 0.25
+        waitTime (float, optional): The time to wait for the wengine to load, defaults to 0.5
         target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
     Returns:
         bool: True if the wengine is equipped, False otherwise
@@ -777,7 +777,7 @@ def is_character_wengine_equipped(
 
 def get_character_equipment_status(
     resolution: ScreenResolution,
-    waitTime: float = 0.25,
+    waitTime: float = 0.5,
     target_folder: str = "Target_Images",
 ) -> dict:
     """
@@ -786,7 +786,7 @@ def get_character_equipment_status(
 
     Args:
         resolution (ScreenResolution): The current screen resolution
-        waitTime (float, optional): The time to wait for the wengine to load, defaults to 0.25
+        waitTime (float, optional): The time to wait for the wengine to load, defaults to 0.5
         target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
 
     Returns:
@@ -810,7 +810,9 @@ def get_character_equipment_status(
     screenshot = pyautogui.screenshot(region=disk_wheel_region)
     disks_equipped = get_character_disks_equipped(screenshot, screenResolution)
     all_disks_equipped = all(disks_equipped)
-    wengine_equipped = is_character_wengine_equipped(screenResolution)
+    wengine_equipped = is_character_wengine_equipped(
+        resolution=resolution, waitTime=waitTime
+    )
     return {
         "all_disks_equipped": all_disks_equipped,
         "wengine_equipped": wengine_equipped,

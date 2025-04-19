@@ -286,7 +286,7 @@ def is_character_wengine_equipped(
 
 def get_character_equipment_status(
     resolution: ScreenResolution,
-    waitTime: float = 0.25,
+    waitTime: float = 0.5,
     target_folder: str = "Target_Images",
 ) -> dict:
     """
@@ -295,7 +295,7 @@ def get_character_equipment_status(
 
     Args:
         resolution (ScreenResolution): The current screen resolution
-        waitTime (float, optional): The time to wait for the wengine to load, defaults to 0.25
+        waitTime (float, optional): The time to wait for the wengine to load, defaults to 0.5
         target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
 
     Returns:
@@ -319,7 +319,9 @@ def get_character_equipment_status(
     screenshot = pyautogui.screenshot(region=disk_wheel_region)
     disks_equipped = get_character_disks_equipped(screenshot, screenResolution)
     all_disks_equipped = all(disks_equipped)
-    wengine_equipped = is_character_wengine_equipped(screenResolution)
+    wengine_equipped = is_character_wengine_equipped(
+        resolution=resolution, waitTime=waitTime
+    )
     return {
         "all_disks_equipped": all_disks_equipped,
         "wengine_equipped": wengine_equipped,
@@ -1211,14 +1213,14 @@ if __name__ == "__main__":
     # get_character_snapshots(0)
     # mouseposTest = (0.725 * screenWidth, 0.5 * screenHeight)
     # pyautogui.moveTo(mouseposTest)
-    temp = pyautogui.screenshot(
-        region=(
-            int(0.375 * screenWidth),
-            int(0.145 * screenHeight),
-            int(0.1 * screenWidth),
-            int(0.06 * screenHeight),
-        ),
-    )
+    # temp = pyautogui.screenshot(
+    #     region=(
+    #         int(0.375 * screenWidth),
+    #         int(0.145 * screenHeight),
+    #         int(0.1 * screenWidth),
+    #         int(0.06 * screenHeight),
+    #     ),
+    # )
     # disks_status = get_character_disks_equipped(temp, screenResolution)
     # is_wengine_equipped = is_character_wengine_equipped(
     #     resolution=screenResolution,
@@ -1226,12 +1228,13 @@ if __name__ == "__main__":
     # )
     # print(is_wengine_equipped)
     # print(disks_status)
-    temp.save("./TestImages/test_character_skill.png")
-    img = preprocess_skill_image(
-        "./TestImages/test_character_skill.png",
-        save_path="./TestImages/test_character_skill_processed.png",
-    )
-    print(process_skill_image("./TestImages/test_character_skill.png", coreSkill=False))
+    print(get_character_equipment_status(screenResolution))
+    # temp.save("./TestImages/test_character_skill.png")
+    # img = preprocess_skill_image(
+    #     "./TestImages/test_character_skill.png",
+    #     save_path="./TestImages/test_character_skill_processed.png",
+    # )
+    # print(process_skill_image("./TestImages/test_character_skill.png", coreSkill=False))
     # print(process_skill_image("./TestImages/test.png", coreSkill=False))
     # print(process_skill_image("./TestImages/test1.png", coreSkill=True))
     # print(process_character_disk_image("./TestImages/testDisc.png", 1))

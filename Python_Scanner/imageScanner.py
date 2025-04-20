@@ -995,7 +995,7 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                     # Only process if we haven't already completed this character
                     # grab the partition number from the image path
                     partition_number = image_path.split("_partition_")[1].split(
-                        "_scan"
+                        "_disk_scan"
                     )[0]
 
                     # Only process if this disk should be equipped

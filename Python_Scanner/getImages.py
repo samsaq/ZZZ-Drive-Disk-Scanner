@@ -612,9 +612,7 @@ def scanDiskDriveCharacter(
         )
     )
     # save with partition number and scan number
-    save_path = (
-        f"./{outputFolder}/agent_{characterNumber}_partition_{paritionNumber}_scan.png"
-    )
+    save_path = f"./{outputFolder}/agent_{characterNumber}_partition_{paritionNumber}_disk_scan.png"
     screenshot.save(save_path)
     # put the image path in the queue
     if queue:
@@ -660,17 +658,17 @@ def is_character_owned(
         # If we get here, the image was found (character is not owned)
         pyautogui.click()
         time.sleep(pageLoadTime)
-        print("Agent is not owned")
+        # print("Agent is not owned")
         return False
     except pyautogui.ImageNotFoundException:
         # Image not found means the agent is owned
         pyautogui.click()
         time.sleep(pageLoadTime)
-        print("Agent is owned")
+        # print("Agent is owned")
         return True
     except Exception as e:
         # Handle any other unexpected errors
-        print(f"Error checking if agent is owned: {e}")
+        logging.error(f"Error checking if agent is owned: {e}")
         return False
 
 
@@ -710,7 +708,7 @@ def get_character_disks_equipped(
         # Load the template image
         template = cv2.imread(disk_target)
         if template is None:
-            print(f"Warning: Could not load disk template {disk_target}")
+            logging.warning(f"Warning: Could not load disk template {disk_target}")
             disks_equipped.append(True)  # Assume equipped if template can't be loaded
             continue
 
@@ -967,7 +965,7 @@ def get_character_snapshots(
         time.sleep(scanTime)
 
         # check what equipment is equipped
-        equipment_status = get_character_equipment_status(resolution, scanTime)
+        equipment_status = get_character_equipment_status(resolution, scanTime * 2)
         time.sleep(scanTime)
 
         # Format the equipment status for the queue
@@ -1089,7 +1087,7 @@ def getImages(queue: Queue, pageLoadTime, discScanTime, scantype):
         discScanTime (float): The time to wait between scans of the disk drives
         scantype (str): The type of scan to perform. Can be "all", "wengine", "character", "disk"
     """
-    log_file_path = resource_path("scan_output/templog.txt")
+    log_file_path = resource_path("scan_output/snapshotlog.txt")
     setup_logging(log_file_path)
     switchToZZZ()
     if scantype == "Disk":
@@ -1135,10 +1133,10 @@ if __name__ == "__main__":
     # Create scan_output directory if it doesn't exist
     os.makedirs("scan_output", exist_ok=True)
 
-    # remove the templog.txt file if it exists
-    if os.path.exists("scan_output/templog.txt"):
-        os.remove("scan_output/templog.txt")
+    # remove the snapshotlog.txt file if it exists
+    if os.path.exists("scan_output/snapshotlog.txt"):
+        os.remove("scan_output/snapshotlog.txt")
     # now create it again as an empty file
-    with open("scan_output/templog.txt", "w"):
+    with open("scan_output/snapshotlog.txt", "w"):
         pass
     getImages(Queue(), 2, 0.25)

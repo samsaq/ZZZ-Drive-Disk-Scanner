@@ -1213,14 +1213,14 @@ if __name__ == "__main__":
     # get_character_snapshots(0)
     # mouseposTest = (0.725 * screenWidth, 0.5 * screenHeight)
     # pyautogui.moveTo(mouseposTest)
-    # temp = pyautogui.screenshot(
-    #     region=(
-    #         int(0.375 * screenWidth),
-    #         int(0.145 * screenHeight),
-    #         int(0.1 * screenWidth),
-    #         int(0.06 * screenHeight),
-    #     ),
-    # )
+    temp = pyautogui.screenshot(
+        region=(
+            int(0.31 * screenWidth),  # left
+            int(0.1 * screenHeight),  # top
+            int(0.2 * screenWidth),  # width
+            int(0.55 * screenHeight),  # height
+        ),
+    )
     # disks_status = get_character_disks_equipped(temp, screenResolution)
     # is_wengine_equipped = is_character_wengine_equipped(
     #     resolution=screenResolution,
@@ -1228,13 +1228,12 @@ if __name__ == "__main__":
     # )
     # print(is_wengine_equipped)
     # print(disks_status)
-    print(get_character_equipment_status(screenResolution))
-    # temp.save("./TestImages/test_character_skill.png")
-    # img = preprocess_skill_image(
-    #     "./TestImages/test_character_skill.png",
-    #     save_path="./TestImages/test_character_skill_processed.png",
-    # )
-    # print(process_skill_image("./TestImages/test_character_skill.png", coreSkill=False))
+    temp.save("./TestImages/test_character_disk.png")
+    img = preprocess_image(
+        image_path="./TestImages/test_character_disk.png",
+        save_path="./TestImages/test_character_disk_processed.png",
+    )
+    print(process_character_disk_image("./TestImages/test_character_disk.png", 3))
     # print(process_skill_image("./TestImages/test.png", coreSkill=False))
     # print(process_skill_image("./TestImages/test1.png", coreSkill=True))
     # print(process_character_disk_image("./TestImages/testDisc.png", 1))

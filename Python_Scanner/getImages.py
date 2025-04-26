@@ -612,7 +612,7 @@ def scanDiskDriveCharacter(
         )
     )
     # save with partition number and scan number
-    save_path = f"./{outputFolder}/agent_{characterNumber}_partition_{paritionNumber}_disk_scan.png"
+    save_path = f"./{outputFolder}/character_{characterNumber}_partition_{paritionNumber}_disk_scan.png"
     screenshot.save(save_path)
     # put the image path in the queue
     if queue:

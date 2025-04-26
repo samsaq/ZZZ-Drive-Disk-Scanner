@@ -95,18 +95,18 @@ def preprocess_image(
             agent_icon_x : agent_icon_x + agent_icon_width,
         ] = 0
 
-    # downscale the image so that it is 256 pixels wide, and keep the aspect ratio
-    # we do this to keep the font size in the ideal range for tessaract (20px high capitals)
-    # calculate the scaling factor
-    desired_width = 384
-    scaling_factor = desired_width / binary_image.shape[1]
-    # calculate the new height
-    desired_height = int(binary_image.shape[0] * scaling_factor)
+    # # downscale the image so that it is 256 pixels wide, and keep the aspect ratio
+    # # we do this to keep the font size in the ideal range for tessaract (20px high capitals)
+    # # calculate the scaling factor
+    # desired_width = 384
+    # scaling_factor = desired_width / binary_image.shape[1]
+    # # calculate the new height
+    # desired_height = int(binary_image.shape[0] * scaling_factor)
 
-    # resize the image
-    binary_image = cv2.resize(
-        binary_image, (desired_width, desired_height), interpolation=cv2.INTER_AREA
-    )
+    # # resize the image
+    # binary_image = cv2.resize(
+    #     binary_image, (desired_width, desired_height), interpolation=cv2.INTER_AREA
+    # )
 
     # Save the image if a save_path is provided
     if save_path:

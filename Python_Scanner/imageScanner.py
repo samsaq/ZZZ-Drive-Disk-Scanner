@@ -199,7 +199,7 @@ def extract_metadata(result_text, image_path, provided_partition_number: int = N
                         f"Could not find value for random stat {cur_random_stat_name}"
                     )
         else:
-            logging.DEBUG(f"Could not find random stat name in:" + result_text[i])
+            logging.debug(f"Could not find random stat name in:" + result_text[i])
     return {
         "set_name": set_name,
         "partition_number": partition_number,
@@ -304,6 +304,54 @@ def correct_metadata(metadata):
 
     # correct the random stats, each stat is a pair of (stat_name, stat_value)
     # we'll be checking the stat_name against the valid_random_stats list
+
+    # handle the anomaly proficiency edge case when the value has a suffix - it becomes too long and becomes multiple lines
+    cosine = Cosine(2)
+    i = 0
+    while i < len(metadata["random_stats"]):
+        stat_name, stat_value = metadata["random_stats"][i]
+
+        # Check if we have "Anomaly Proficiency" with no value or incomplete value
+        similarity = cosine.similarity(stat_name, "Anomaly Proficiency")
+
+        # Check if we can combine with the next entry
+        if (
+            similarity
+            > 0.7  # if the stat name is close to "Anomaly Proficiency" to avoid false positives
+            and "+" not in stat_name  # lets try to get a suffix
+            and i + 1 < len(metadata["random_stats"])
+        ):
+            next_name, next_value = metadata["random_stats"][i + 1]
+
+            # If next entry is likely a continuation
+            if next_name.startswith("+") or next_name.strip().isdigit():
+                if next_name.startswith("+"):
+                    next_name_no_spaces = next_name.replace(" ", "")
+                    if (
+                        len(next_name_no_spaces) == 2
+                        and next_name_no_spaces[1] in "12345"
+                    ):
+                        suffix = next_name_no_spaces[:2]  # Get "+2" instead of just "+"
+                        combined_name = f"Anomaly Proficiency{suffix}"
+                else:
+                    if next_name.strip() in "12345":
+                        combined_name = f"Anomaly Proficiency+{next_name.strip()}"
+
+                # Update the current entry with the combined name
+                metadata["random_stats"][i] = (
+                    combined_name,
+                    stat_value,
+                )  # the stat value will get corrected by the get_expected_sub_stat_values() function later
+
+                # Remove the next entry
+                metadata["random_stats"].pop(i + 1)
+
+                # Don't increment i after popping the next entry - we want to check the updated current entry again
+                continue
+
+        i += 1
+
+    # correct random stat names
     for i in range(len(metadata["random_stats"])):
         stat_name = metadata["random_stats"][i][0]
         closest_stat = find_closest_stat(stat_name, valid_random_stats)
@@ -383,6 +431,137 @@ def correct_metadata(metadata):
         logging.WARNING(
             f"Error while correcting sub stats, proceeding uncorrected: {e}"
         )
+
+    # we can only have 4 random stats, so if we have more, throw them out
+    if len(metadata["random_stats"]) > 4:
+        metadata["random_stats"] = metadata["random_stats"][:4]
+        logging.warning(
+            "Had more than 4 random stats, corrected to 4, original: "
+            + str(metadata["random_stats"])
+        )
+
+    # if we have two random stats with the same name (in the set of "HP", "HP%", "ATK", "ATK%", "DEF", "DEF%"), see if one matches an expected progression of percentage or number values
+    # if it does, make it that type, and the other one the other type
+    main_stats_progression, sub_stats_progression = get_rarity_stats(
+        metadata["drive_rarity"]
+    )
+
+    # Track stats by their base type (HP, ATK, DEF)
+    base_stat_types = ["HP", "ATK", "DEF"]
+    base_stat_instances = {base: [] for base in base_stat_types}
+
+    # First pass: group stats by their base type
+    for i, (stat_name, stat_value) in enumerate(metadata["random_stats"]):
+        base_name = None
+        # Check each base stat type
+        for base in base_stat_types:
+            if base in stat_name:
+                # Get the base name without any % or +X suffix
+                base_name = base
+                break
+
+        if base_name:
+            # Parse upgrade level if present
+            upgrade_level = 0
+            if "+" in stat_name:
+                try:
+                    upgrade_match = re.search(r"\+\s*([1-5])", stat_name)
+                    if upgrade_match:
+                        upgrade_level = int(upgrade_match.group(1))
+                except:
+                    pass
+
+            # Determine if it has a percent
+            has_percent = "%" in stat_value
+            is_percent_type = "%" in stat_name
+
+            # Extract numeric value - decimal or integer
+            numeric_value = float(re.sub(r"[^0-9.]", "", stat_value))
+
+            # Store all information
+            base_stat_instances[base_name].append(
+                {
+                    "index": i,
+                    "name": stat_name,
+                    "value": stat_value,
+                    "numeric_value": numeric_value,
+                    "has_percent": has_percent,
+                    "is_percent_type": is_percent_type,
+                    "upgrade_level": upgrade_level,
+                }
+            )
+
+    # Second pass: resolve conflicts using known stat progressions
+    # see if we can combine duplicate stats (aka choose one to be a percent or integer if one matches a progression)
+    for base_name, instances in base_stat_instances.items():
+        if len(instances) <= 1:
+            continue  # No conflict to resolve
+
+        # Find the progression values for both flat and percent versions
+        flat_base_value = None
+        percent_base_value = None
+
+        for stat_name, value in sub_stats_progression:
+            if stat_name == base_name:
+                flat_base_value = value
+            elif stat_name == f"{base_name}%":
+                percent_base_value = value
+
+        if not flat_base_value or not percent_base_value:
+            continue  # Missing progression data
+
+        # For each instance, check against expected values for its level
+        for instance in instances:
+            # Calculate expected values based on the game's progression system
+            flat_expected = flat_base_value + (
+                instance["upgrade_level"] * flat_base_value
+            )
+            percent_expected = percent_base_value + (
+                instance["upgrade_level"] * percent_base_value
+            )
+
+            # For flat values, round to integer; for percentage, round to 1 decimal
+            flat_expected = round(flat_expected)
+            percent_expected = round(percent_expected, 1)
+
+            # Check which expected value is closer to the actual value
+            flat_diff = abs(instance["numeric_value"] - flat_expected) / max(
+                1, flat_expected
+            )
+            percent_diff = abs(instance["numeric_value"] - percent_expected) / max(
+                1, percent_expected
+            )
+
+            # Determine the correct stat type based on value proximity
+            should_be_percent = percent_diff < flat_diff
+
+            # If the current stat type doesn't match what it should be, fix it
+            if should_be_percent and not instance["is_percent_type"]:
+                # Convert to percent type
+                base_without_percent = base_name
+                new_name = base_without_percent + "%"
+                if instance["upgrade_level"] > 0:
+                    new_name += f"+{instance['upgrade_level']}"
+                new_value = f"{percent_expected}%"
+
+                # Update in the original list
+                metadata["random_stats"][instance["index"]] = (new_name, new_value)
+                logging.warning(
+                    f"Corrected {instance['name']} to {new_name} (percent type) based on value {instance['value']} -> {new_value}"
+                )
+
+            elif not should_be_percent and instance["is_percent_type"]:
+                # Convert to flat type
+                new_name = base_name
+                if instance["upgrade_level"] > 0:
+                    new_name += f"+{instance['upgrade_level']}"
+                new_value = str(flat_expected)
+
+                # Update in the original list
+                metadata["random_stats"][instance["index"]] = (new_name, new_value)
+                logging.warning(
+                    f"Corrected {instance['name']} to {new_name} (flat type) based on value {instance['value']} -> {new_value}"
+                )
 
 
 ### WEngine Specific Functions ###
@@ -922,7 +1101,7 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                             cur_character_data = {}
                             character_data_complete = True
                             logging.info(
-                                f"Finished processing character #{characterNum}, at {image_path}"
+                                f"Finished processing character #{characterNum}, who had no equipment to scan"
                             )
                             characterNum += 1
                 elif "level" in image_path:
@@ -946,7 +1125,7 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                     cur_character_data = {}
                     character_data_complete = True
                     logging.info(
-                        f"Finished processing character #{characterNum}, at {image_path}"
+                        f"Finished processing character #{characterNum}, at {image_path} with equipment status {cur_equipment_status}"
                     )
                     characterNum += 1
                 elif "cinema" in image_path:
@@ -1047,7 +1226,7 @@ def imageScanner(queue: Queue, resolution: ScreenResolution):
                         cur_character_data = {}
                         character_data_complete = True
                         logging.info(
-                            f"Processing character #{characterNum}, at {image_path} finished"
+                            f"Processing character #{characterNum}, at {image_path} finished  with equipment status {cur_equipment_status}"
                         )
                         characterNum += 1
 

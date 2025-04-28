@@ -3,6 +3,7 @@ import os, re, time
 from multiprocessing import Process, Queue, freeze_support
 
 import pyautogui
+from ui_elements import UIElementMatcher
 from getImages import ScreenResolution
 
 # python script that controls the scanning of the disk drives
@@ -88,6 +89,9 @@ if __name__ == "__main__":
         else ScreenResolution.RES_1080P
     )
 
+    # create the ui_matcher
+    ui_matcher = UIElementMatcher(screenWidth, screenHeight)
+
     # get current directory so we can return to it later
     current_directory = os.getcwd()
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -121,10 +125,17 @@ if __name__ == "__main__":
     imageScannerStopped = False
     get_images_process = Process(
         target=getImages,
-        args=((image_queue), (pageLoadTime), (discScanTime), (scantype)),
+        args=(
+            (image_queue),
+            (pageLoadTime),
+            (discScanTime),
+            (scantype),
+            (ui_matcher),
+        ),
     )
     image_scanner_process = Process(
-        target=imageScanner, args=((image_queue), (screenResolution))
+        target=imageScanner,
+        args=((image_queue), (screenResolution), (ui_matcher)),
     )
 
     get_images_process.start()

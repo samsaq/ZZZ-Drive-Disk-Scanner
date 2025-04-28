@@ -3,14 +3,20 @@ import os
 import time
 import sys
 import PIL
-import cv2
 import numpy as np
 import pyautogui
 import logging
 import keyboard
 from keyboard import press
 from multiprocessing import Queue
+from ui_elements import (
+    ExistingScreenshotMatcher,
+    UIElement,
+    UIElementMatcher,
+    UI_ELEMENTS,
+)
 from validMetadata import character_names
+from typing import Optional
 
 
 # screen resolutions supported enum
@@ -62,42 +68,56 @@ def switchToZZZ():
     logging.info("Switched to ZenlessZoneZero")
 
 
-def getToEquipmentScreen(queue: Queue, pageLoadTime):
+def getToEquipmentScreen(
+    queue: Queue, pageLoadTime, ui_matcher: Optional[UIElementMatcher] = None
+):
     """
     Get to the equipment screen from the character screen
 
     Args:
-        queue (Queue): Queue to send screenshots to for processing. Defaults to None. Also used to signal the end of the image collection via error message
+        queue (Queue): Queue to send screenshots to for processing. Also used to signal the end of the image collection via error message
         pageLoadTime (float): The time to wait for the page to load
+        ui_matcher (Optional[UIElementMatcher]): Optional UI element matcher to reuse. If None, a new one will be created.
     """
     logging.info("Getting to the equipment screen")
+
     # press c to get to the character screen
     press("c")
     logging.info("Pressed c for character screen")
+
     # wait for the character screen to load
     pyautogui.sleep(pageLoadTime)
-    # adjust the target based on devMode
-    target = "./Target_Images/zzz-equipment-button.png"
 
-    # if the screen resolution is 1080p, we need to adjust the target
-    if screenResolution == ScreenResolution.RES_1080P:
-        target = "./Target_Images/zzz-equipment-button-1080p.png"
+    # Create or use the provided UI matcher
+    if ui_matcher is None:
+        ui_matcher = UIElementMatcher(screenWidth, screenHeight)
 
-    # press the equipment button to get to the equipment screen
+    # Use the pre-defined equipment button element
+    equipment_button_element = UI_ELEMENTS["equipment_button"]
+
+    # Try to locate and click the equipment button
     try:
-        equipmentButton = pyautogui.locateOnScreen(target, confidence=0.8)
+        # Using the UI matcher to find and click the equipment button
+        success = ui_matcher.click_element(equipment_button_element)
+
+        if not success:
+            logging.error("Equipment button not found")
+            print("Equipment button not found")
+            queue.put(
+                "Error - failed to get to the equipment screen"
+            )  # cause the process to end early
+            sys.exit(1)
+
+        logging.info("Successfully clicked equipment button")
+
     except Exception as e:
-        logging.error(f"Error locating equipment button:  + {e}")
+        logging.error(f"Error locating equipment button: {e}")
         logging.error(f"Current directory: {os.getcwd()}")
-    logging.info("Located equipment button: " + str(equipmentButton))
-    if equipmentButton == None:
-        logging.error("Equipment button not found")
-        print("Equipment button not found")
         queue.put(
             "Error - failed to get to the equipment screen"
         )  # cause the process to end early
         sys.exit(1)
-    pyautogui.click(equipmentButton)
+
     # wait for the equipment screen to load
     pyautogui.sleep(pageLoadTime)
 
@@ -256,58 +276,88 @@ def scanRowUntilEndOfDiskDrives(
     return scanNumber
 
 
-def scanForEndOfDiskDrives(distanceBetwenRows, rowNumber=None):
+def scanForEndOfDiskDrives(
+    distanceBetwenRows, rowNumber=None, ui_matcher: Optional[UIElementMatcher] = None
+):
+    """
+    Scan for the end of disk drives indicator
 
-    if rowNumber == None:
+    Args:
+        distanceBetwenRows: Distance between rows
+        rowNumber: Row number to scan at (if None, scan entire screen)
+        ui_matcher: Optional UI element matcher to reuse
+
+    Returns:
+        Location tuple if end of disk drives is found, False otherwise
+    """
+    # Create UI matcher if not provided
+    if ui_matcher is None:
+        ui_matcher = UIElementMatcher(screenWidth, screenHeight)
+
+    # Get the UI elements from the predefined dictionary
+    no_disk_icon_element = UI_ELEMENTS["no_disk_drive_icon"]
+    no_disk_scrollbar_element = UI_ELEMENTS["no_disk_drive_scrollbar"]
+
+    if rowNumber is None:
+        # Create elements without region constraints for full screen search
+        icon_element = UIElement(
+            name=no_disk_icon_element.name,
+            template_path=no_disk_icon_element.template_path,
+            confidence=no_disk_icon_element.confidence,
+        )
+
+        scrollbar_element = UIElement(
+            name=no_disk_scrollbar_element.name,
+            template_path=no_disk_scrollbar_element.template_path,
+            confidence=no_disk_scrollbar_element.confidence,
+        )
+
+        # Try to locate the icon
         try:
-            target = "./Target_Images/zzz-no-disk-drive-icon.png"
-            if screenResolution == ScreenResolution.RES_1080P:
-                target = "./Target_Images/zzz-no-disk-drive-icon-1080p.png"
-            endOfDiskDrivesIcon = pyautogui.locateOnScreen(
-                target,
-                confidence=0.8,
-            )
+            endOfDiskDrivesIcon = ui_matcher.locate_element(icon_element)
+            if endOfDiskDrivesIcon is None:
+                endOfDiskDrivesIcon = False
         except:
             endOfDiskDrivesIcon = False
 
+        # Try to locate the scrollbar
         try:
-            target = "./Target_Images/zzz-no-disk-drive-scrollbar.png"
-            if screenResolution == ScreenResolution.RES_1080P:
-                target = "./Target_Images/zzz-no-disk-drive-scrollbar-1080p.png"
-            endOfDiskDrivesScrollbar = pyautogui.locateOnScreen(
-                target,
-                confidence=0.95,
-            )
+            endOfDiskDrivesScrollbar = ui_matcher.locate_element(scrollbar_element)
+            if endOfDiskDrivesScrollbar is None:
+                endOfDiskDrivesScrollbar = False
         except:
             endOfDiskDrivesScrollbar = False
-        # return false if both the icon and the scrollbar are not visible
+
+        # Return false if both the icon and the scrollbar are not visible
         if endOfDiskDrivesIcon == False and endOfDiskDrivesScrollbar == False:
             return False
-        # else, return the one that is not false
+        # Else, return the one that is not false
         if endOfDiskDrivesIcon != False:
             return endOfDiskDrivesIcon
         return endOfDiskDrivesScrollbar
 
+    # For specific row number search
     rowModifier = 0.1 + (distanceBetwenRows * (rowNumber - 1))
 
-    # check if the end of the disk drives is visible
-    endOfDiskDrives = False
+    # Create a region-constrained element for the specific row
+    region_constrained_icon = UIElement(
+        name=no_disk_icon_element.name,
+        template_path=no_disk_icon_element.template_path,
+        relative_x=0.04,
+        relative_y=rowModifier,
+        relative_width=0.275,
+        relative_height=0.125,
+        confidence=no_disk_icon_element.confidence,
+    )
+
+    # Check if the end of the disk drives is visible in the specific row
     try:
-        target = "./Target_Images/zzz-no-disk-drive-icon.png"
-        if screenResolution == ScreenResolution.RES_1080P:
-            target = "./Target_Images/zzz-no-disk-drive-icon-1080p.png"
-        endOfDiskDrives = pyautogui.locateOnScreen(
-            target,
-            confidence=0.8,
-            region=(
-                int(0.04 * screenWidth),  # left
-                int(rowModifier * screenHeight),  # top
-                int(0.275 * screenWidth),  # width
-                int(0.125 * screenHeight),  # height
-            ),
-        )
+        endOfDiskDrives = ui_matcher.locate_element(region_constrained_icon)
+        if endOfDiskDrives is None:
+            endOfDiskDrives = False
     except:
         endOfDiskDrives = False
+
     return endOfDiskDrives
 
 
@@ -420,7 +470,10 @@ def getWEngine(queue: Queue = None, outputFile="TestImages/test.png"):
 
 # scan the WEngine tab in the backpack
 def getWEngineTab(
-    queue: Queue = None, scanTime: float = 0.25, save_folder: str = "scan_input"
+    queue: Queue = None,
+    scanTime: float = 0.25,
+    save_folder: str = "scan_input",
+    ui_matcher: Optional[UIElementMatcher] = None,
 ):
     """
     Scans the WEngine tab in the backpack, either sending screenshots to a queue or saving to a folder for examination.
@@ -429,6 +482,7 @@ def getWEngineTab(
         queue (Queue, optional): Queue to send screenshots to for processing. Defaults to None.
         scanTime (float, optional): Time to wait between scans. Defaults to 0.25.
         save_folder (str, optional): Folder to save screenshots to. Defaults to "scan_input". Will create the directory if it doesn't exist.
+        ui_matcher (UIElementMatcher, optional): UI element matcher to use. If None, a new one will be created.
 
     Returns:
         int: The number of items scanned
@@ -442,6 +496,14 @@ def getWEngineTab(
 
     if not queue and not save_folder:
         raise ValueError("Must provide either a queue or save_folder or both")
+
+    # Create UI matcher if not provided
+    if ui_matcher is None:
+        ui_matcher = UIElementMatcher(screenWidth, screenHeight)
+
+    # Get the UI elements from the predefined dictionary
+    inventory_end_scrollbar = UI_ELEMENTS["inventory_end_scrollbar"]
+    no_inventory_item_icon = UI_ELEMENTS["no_inventory_item_icon"]
 
     startPosition = (0.13 * screenWidth, 0.27 * screenHeight)  # start top left
     distanceBetweenColumns = 0.075 * screenWidth
@@ -478,16 +540,21 @@ def getWEngineTab(
 
         # Check if we've reached the end of the inventory
         try:
-            target = "./Target_Images/zzz-inventory-end-scrollbar-1440p.png"
-            if screenResolution == ScreenResolution.RES_1080P:
-                target = "./Target_Images/zzz-inventory-end-scrollbar-1080p.png"
-            endOfInventory = pyautogui.locateOnScreen(
-                target,
-                confidence=0.95,
+            # Create a full-screen search element to look for the end scrollbar
+            end_scrollbar_element = UIElement(
+                name=inventory_end_scrollbar.name,
+                template_path=inventory_end_scrollbar.template_path,
+                confidence=inventory_end_scrollbar.confidence,
             )
+
+            # Check if end of inventory is visible
+            endOfInventory = ui_matcher.locate_element(end_scrollbar_element)
             if endOfInventory:
                 break
-        except:
+            else:  # If we don't find the end of inventory, continue (previously locateOnScreen would raise an image not found error)
+                pass
+        except Exception as e:
+            print(f"Error checking for end of inventory: {e}")
             pass
 
         # Scroll down for next row
@@ -495,7 +562,7 @@ def getWEngineTab(
         pyautogui.sleep(scanTime)
 
     # Scan remaining rows on the final page
-    for row in range(1, rowNumber):
+    for row in range(1, rowNumber - 1):
         curRowStart = (
             startPosition[0],
             startPosition[1] + (row) * distanceBetweenRows,
@@ -510,24 +577,31 @@ def getWEngineTab(
 
             # Check for empty slot
             try:
-                target = "./Target_Images/zzz-no-inventory-item-icon-1440p.png"
-                if screenResolution == ScreenResolution.RES_1080P:
-                    target = "./Target_Images/zzz-no-inventory-item-icon-1080p.png"
-                emptySlot = pyautogui.locateOnScreen(
-                    target,
-                    confidence=0.9,
-                    region=(
-                        int(currentPos[0] - 0.08 * screenWidth),
-                        int(currentPos[1] - 0.08 * screenHeight),
-                        int(0.16 * screenWidth),
-                        int(0.16 * screenHeight),
-                    ),
+                next_slot_region = (
+                    int(currentPos[0] - 0.08 * screenWidth),
+                    int(currentPos[1] - 0.08 * screenHeight),
+                    int(0.16 * screenWidth),
+                    int(0.16 * screenHeight),
                 )
+                region_screenshot = pyautogui.screenshot(region=next_slot_region)
+                ui_matcherExisting = ExistingScreenshotMatcher(
+                    screenshot=region_screenshot,
+                    screen_width=screenWidth,
+                    screen_height=screenHeight,
+                )
+                emptySlot = ui_matcherExisting.locate_element_in_screenshot(
+                    no_inventory_item_icon
+                )
+
+                # Check if empty slot is found
                 if emptySlot:
                     return (
                         scanNumber - 1
                     )  # Exit  if we find an empty slot since we've reached the end of the inventory
+                else:  # If we don't find an empty slot, continue (previously locateOnScreen would raise an image not found error)
+                    pass
             except Exception as e:
+                print(f"Error checking for empty slot: {e}")
                 pass
 
             # Take screenshot if not empty
@@ -621,16 +695,18 @@ def scanDiskDriveCharacter(
 
 
 def is_character_owned(
-    target_folder: str = "Target_Images",
-    resolution: ScreenResolution = screenResolution,
-    pageLoadTime: float = 0.25,
+    ui_matcher: UIElementMatcher = None,
+    scanTime: float = 0.25,
+    pageLoadTime: float = 0.5,
 ) -> bool:
     """
     Check if the current character is owned by looking for the preview mode popup.
+    Run only after the wish reel icon is clicked.
 
     Args:
-        target_folder (str): Folder containing the reference images
-        resolution (ScreenResolution): Current screen resolution
+        ui_matcher (UIElementMatcher, optional): UI element matcher instance to use, defaults to None and will create one
+        scanTime (float, optional): Time to wait after clicking the wish reel icon, defaults to 0.25
+        pageLoadTime (float, optional): Time to wait after pressing ESC, defaults to 0.5
 
     Returns:
         bool: True if character is owned, False if not owned
@@ -638,43 +714,39 @@ def is_character_owned(
     Used In:
         get_character_snapshots()
     """
-    wishReelPreviewPath = None
-    if resolution == ScreenResolution.RES_1440P:
-        wishReelPreviewPath = f"./{target_folder}/zzz-character-not-owned-1440p.png"
-    elif resolution == ScreenResolution.RES_1080P:
-        wishReelPreviewPath = f"./{target_folder}/zzz-character-not-owned-1080p.png"
+
+    # click the wish reel icon to display the promotion preview popup
+    wishReelIconPosition = (0.92 * screenWidth, 0.2 * screenHeight)
+    pyautogui.moveTo(wishReelIconPosition)
+    pyautogui.click()
+    time.sleep(scanTime)
+
+    # Create matcher if not provided
+    if ui_matcher is None:
+        screen_width, screen_height = pyautogui.size()
+        ui_matcher = UIElementMatcher(screen_width, screen_height)
 
     try:
-        pyautogui.locateOnScreen(
-            wishReelPreviewPath,
-            confidence=0.9,
-            region=(
-                int(0.25 * screenWidth),
-                int(0.4 * screenHeight),
-                int(0.5 * screenWidth),
-                int(0.2 * screenHeight),
-            ),
+        # Check if the character not owned element is visible
+        is_found = (
+            ui_matcher.locate_element(UI_ELEMENTS["character_not_owned"]) is not None
         )
-        # If we get here, the image was found (character is not owned)
-        pyautogui.click()
+
+        # If we found the element, character is not owned
+        keyboard.press("esc")
         time.sleep(pageLoadTime)
-        # print("Agent is not owned")
-        return False
-    except pyautogui.ImageNotFoundException:
-        # Image not found means the agent is owned
-        pyautogui.click()
-        time.sleep(pageLoadTime)
-        # print("Agent is owned")
-        return True
+        print("Agent is owned: ", not is_found)
+        return not is_found
     except Exception as e:
-        # Handle any other unexpected errors
-        logging.error(f"Error checking if agent is owned: {e}")
+        # Handle any unexpected errors
+        print(f"Error checking if agent is owned: {e}")
+        keyboard.press("esc")
+        time.sleep(pageLoadTime)
         return False
 
 
 def get_character_disks_equipped(
     screenshot: PIL.Image.Image,
-    resolution: ScreenResolution,
     target_folder: str = "Target_Images",
 ) -> list[bool]:
     """
@@ -682,7 +754,6 @@ def get_character_disks_equipped(
 
     Args:
         screenshot (PIL.Image.Image): The screenshot of the equipment screen to check from pyautogui.screenshot()
-        resolution (ScreenResolution): The current screen resolution
         target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
 
     Returns:
@@ -691,101 +762,92 @@ def get_character_disks_equipped(
     Usage:
         Used in get_character_equipment_status() to determine what disks are available to scan
     """
-    resolution_suffix = (
-        "-1440p" if resolution == ScreenResolution.RES_1440P else "-1080p"
-    )
+
+    # create the matcher for our screenshot
+    ui_matcher = ExistingScreenshotMatcher(screenshot, screenWidth, screenHeight)
     disk_targets = [
-        f"./{target_folder}/zzz-character-equipment-no-disk-{i}{resolution_suffix}.png"
+        UIElement(
+            name=f"disk_{i}_empty",
+            template_path=f"./{target_folder}/zzz-character-equipment-no-disk-{i}-1440p.png",
+            confidence=0.9,
+        )
         for i in range(1, 7)
     ]
 
-    # Convert PIL Image to cv2 format
-    screenshot_cv = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
-
     # For each disk_target, check if it matches in the screenshot
     disks_equipped = []
-    for disk_target in disk_targets:
-        # Load the template image
-        template = cv2.imread(disk_target)
-        if template is None:
-            logging.warning(f"Warning: Could not load disk template {disk_target}")
-            disks_equipped.append(True)  # Assume equipped if template can't be loaded
-            continue
-
-        # Perform template matching
-        result = cv2.matchTemplate(screenshot_cv, template, cv2.TM_CCOEFF_NORMED)
-        max_val = result.max()
-
-        # If we found a good match
-        # then the disk is NOT equipped, so we negate the result
-        disks_equipped.append(not (max_val >= 0.9))
+    for element in disk_targets:
+        try:
+            # Check if the empty disk marker is found
+            location = ui_matcher.locate_element_in_screenshot(element)
+            # If the empty disk template is found, the disk is NOT equipped
+            if location is not None:
+                disks_equipped.append(False)
+            else:
+                disks_equipped.append(True)
+        except Exception as e:
+            print(
+                f"Warning: Error processing disk template {element.template_path}: {e}"
+            )
+            disks_equipped.append(
+                False
+            )  # Assume unequipped if template processing fails
 
     return disks_equipped
 
 
 def is_character_wengine_equipped(
-    resolution: ScreenResolution,
     waitTime: float = 0.5,
-    target_folder: str = "Target_Images",
 ) -> bool:
     """
     Check if the character has a wengine equipped by clicking the wengine position and checking if the remove button is visible
 
     Args:
-        resolution (ScreenResolution): The current screen resolution
         waitTime (float, optional): The time to wait for the wengine to load, defaults to 0.5
-        target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
     Returns:
         bool: True if the wengine is equipped, False otherwise
 
     Used In:
         get_character_equipment_status()
     """
-    resolution_suffix = (
-        "-1440p" if resolution == ScreenResolution.RES_1440P else "-1080p"
-    )
-    wengine_target = f"./{target_folder}/zzz-character-equipment-wengine-remove-button{resolution_suffix}.png"
+    # Create UI matcher with current screen dimensions
+    ui_matcher = UIElementMatcher(screenWidth, screenHeight)
 
+    # Use the pre-defined wengine_remove_button element
+    remove_button_element = UI_ELEMENTS["wengine_remove_button"]
+
+    # Define the wengine position to click
     wengine_position = (0.725 * screenWidth, 0.5 * screenHeight)
-    remove_button_region = (
-        int(0.7 * screenWidth),  # left
-        int(0.91 * screenHeight),  # top
-        int(0.15 * screenWidth),  # width
-        int(0.075 * screenHeight),  # height
-    )
+
+    # Click on the wengine position
     pyautogui.moveTo(wengine_position)
     pyautogui.click()
     time.sleep(waitTime)
     # if we can see the remove button, than a wengine is equipped to be removed in the first place
     try:
-        is_equipped = pyautogui.locateOnScreen(
-            wengine_target, confidence=0.9, region=remove_button_region
-        )
-        is_equipped = is_equipped is not None
-    except pyautogui.ImageNotFoundException:  # expected exception in the not found case
-        is_equipped = False
+        # Use the UI element matcher to find the remove button
+        location = ui_matcher.locate_element(remove_button_element)
+        is_equipped = location is not None
     except Exception as e:
         print(f"Error locating wengine remove button: {e}")
         is_equipped = False
     finally:
+        # Always press Escape to close any open dialogs
         keyboard.press("esc")
         time.sleep(waitTime)
+
     return is_equipped
 
 
 def get_character_equipment_status(
-    resolution: ScreenResolution,
     waitTime: float = 0.5,
-    target_folder: str = "Target_Images",
 ) -> dict:
     """
     Get the equipment status of the current character - do they have all disks equipped, is the wengine equipped, etc.
     Triggered when we enter the character's equipment screen
 
     Args:
-        resolution (ScreenResolution): The current screen resolution
         waitTime (float, optional): The time to wait for the wengine to load, defaults to 0.5
-        target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
 
     Returns:
         dict: A dictionary containing the equipment status of the current character in the form:
@@ -806,11 +868,9 @@ def get_character_equipment_status(
     )
 
     screenshot = pyautogui.screenshot(region=disk_wheel_region)
-    disks_equipped = get_character_disks_equipped(screenshot, screenResolution)
+    disks_equipped = get_character_disks_equipped(screenshot)
     all_disks_equipped = all(disks_equipped)
-    wengine_equipped = is_character_wengine_equipped(
-        resolution=resolution, waitTime=waitTime
-    )
+    wengine_equipped = is_character_wengine_equipped(waitTime=waitTime)
     return {
         "all_disks_equipped": all_disks_equipped,
         "wengine_equipped": wengine_equipped,
@@ -822,9 +882,8 @@ def get_character_equipment_status(
 def get_character_snapshots(
     agent_num: int,
     queue: Queue = None,
-    target_folder: str = "Target_Images",
+    ui_matcher: UIElementMatcher = None,
     output_folder: str = "scan_input",
-    resolution: ScreenResolution = screenResolution,
     pageLoadTime: float = 2,
     scanTime: float = 0.25,
     getEquipment: bool = True,
@@ -835,9 +894,8 @@ def get_character_snapshots(
     Args:
         agent_num (int): The number of the character to get the snapshots for
         queue (Queue, optional): The queue to put the image paths and status updates into for the image scanner process, REQUIRED if we want to scan the disks
-        target_folder (str, optional): The folder containing the reference target images, defaults to "Target_Images"
+        ui_matcher (UIElementMatcher, optional): The UI element matcher to use, defaults to None and will create one
         output_folder (str, optional): The folder to save the screenshots in, defaults to "scan_input"
-        resolution (ScreenResolution, optional): The current screen resolution, defaults to screenResolution provided globally
         pageLoadTime (float, optional): The time to wait for the page to load, defaults to 2
         scanTime (float, optional): The time to wait for the disk drive to load, defaults to 0.25
         getEquipment (bool, optional): Whether to get the equipment status of the character, defaults to True
@@ -845,14 +903,15 @@ def get_character_snapshots(
     # create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-
-    wishReelIconPosition = (0.92 * screenWidth, 0.2 * screenHeight)
     exitButtonPosition = (0.06 * screenWidth, 0.05 * screenHeight)
-    pyautogui.moveTo(wishReelIconPosition)
-    pyautogui.click()
-    time.sleep(scanTime)
 
-    if not is_character_owned(target_folder, resolution, pageLoadTime):
+    if ui_matcher is None:
+        screen_width, screen_height = pyautogui.size()
+        ui_matcher = UIElementMatcher(screen_width, screen_height)
+
+    if not is_character_owned(
+        ui_matcher=ui_matcher, scanTime=scanTime, pageLoadTime=pageLoadTime
+    ):
         return True
     time.sleep(scanTime * 2)
 
@@ -965,7 +1024,7 @@ def get_character_snapshots(
         time.sleep(scanTime)
 
         # check what equipment is equipped
-        equipment_status = get_character_equipment_status(resolution, scanTime * 2)
+        equipment_status = get_character_equipment_status(scanTime * 2)
         time.sleep(scanTime)
 
         # Format the equipment status for the queue
@@ -1010,7 +1069,10 @@ def get_character_snapshots(
 
 # intended to be a main function of sorts to be called in getImages.py for character image collection
 def get_characters(
-    pageLoadTime: float = 2, scanTime: float = 0.25, queue: Queue = None
+    pageLoadTime: float = 2,
+    scanTime: float = 0.25,
+    queue: Queue = None,
+    ui_matcher: UIElementMatcher = None,
 ):
     """
     Get the character images for all characters in the character list
@@ -1022,6 +1084,10 @@ def get_characters(
     characters_in_final_row = 7
     startPosition = (0.57 * screenWidth, 0.045 * screenHeight)
     distance_between_characters = 0.0525 * screenWidth
+
+    if ui_matcher is None:
+        screen_width, screen_height = pyautogui.size()
+        ui_matcher = UIElementMatcher(screen_width, screen_height)
 
     # click through the first row using offset selection
     cur_character_position = startPosition
@@ -1035,7 +1101,11 @@ def get_characters(
         navigate_character_details("Base Stats")
         time.sleep(scanTime)
         end_of_owned_characters = get_character_snapshots(
-            agents_scanned, queue=queue, pageLoadTime=pageLoadTime, scanTime=scanTime
+            agent_num=agents_scanned,
+            queue=queue,
+            pageLoadTime=pageLoadTime,
+            scanTime=scanTime,
+            ui_matcher=ui_matcher,
         )
         if end_of_owned_characters:
             break
@@ -1063,10 +1133,11 @@ def get_characters(
             navigate_character_details("Base Stats")
             time.sleep(scanTime)
             end_of_owned_characters = get_character_snapshots(
-                agents_scanned,
+                agent_num=agents_scanned,
                 queue=queue,
                 pageLoadTime=pageLoadTime,
                 scanTime=scanTime,
+                ui_matcher=ui_matcher,
             )
             if end_of_owned_characters:
                 break
@@ -1077,7 +1148,13 @@ def get_characters(
 
 
 # the main function that will be called to get the images by the orchestrator
-def getImages(queue: Queue, pageLoadTime, discScanTime, scantype):
+def getImages(
+    queue: Queue,
+    pageLoadTime,
+    discScanTime,
+    scantype,
+    ui_matcher: UIElementMatcher = None,
+):
     """
     Get the images for the specified type of scan
 
@@ -1089,9 +1166,12 @@ def getImages(queue: Queue, pageLoadTime, discScanTime, scantype):
     """
     log_file_path = resource_path("scan_output/snapshotlog.txt")
     setup_logging(log_file_path)
+    if ui_matcher is None:
+        screen_width, screen_height = pyautogui.size()
+        ui_matcher = UIElementMatcher(screen_width, screen_height)
     switchToZZZ()
     if scantype == "Disk":
-        getToEquipmentScreen(queue, pageLoadTime)
+        getToEquipmentScreen(queue, pageLoadTime, ui_matcher)
         queue.put("Disk")
         # go through the 6 partitions
         for i in range(1, 7):
@@ -1100,14 +1180,14 @@ def getImages(queue: Queue, pageLoadTime, discScanTime, scantype):
     elif scantype == "WEngine":
         switchToWEngineBackpack(pageLoadTime)
         queue.put("WEngine")
-        getWEngineTab(queue, discScanTime)
+        getWEngineTab(queue=queue, scanTime=discScanTime, ui_matcher=ui_matcher)
     elif scantype == "Character":
-        getToEquipmentScreen(queue, pageLoadTime)
+        getToEquipmentScreen(queue, pageLoadTime, ui_matcher)
         queue.put("Character")
-        get_characters(pageLoadTime, discScanTime, queue)
+        get_characters(pageLoadTime, discScanTime, queue, ui_matcher)
     elif scantype == "All":
         # get the disk data
-        getToEquipmentScreen(queue, pageLoadTime)
+        getToEquipmentScreen(queue, pageLoadTime, ui_matcher)
         queue.put("Disk")
         # go through the 6 partitions
         for i in range(1, 7):
@@ -1116,10 +1196,10 @@ def getImages(queue: Queue, pageLoadTime, discScanTime, scantype):
         # get the wengine data
         queue.put("WEngine")
         switchToWEngineBackpackFromDisks(pageLoadTime)
-        getWEngineTab(queue, discScanTime)
+        getWEngineTab(queue=queue, scanTime=discScanTime, ui_matcher=ui_matcher)
         # get the character data
         queue.put("Character")
-        get_characters(pageLoadTime, discScanTime, queue)
+        get_characters(pageLoadTime, discScanTime, queue, ui_matcher)
     # put a message in the queue to signal the end of the image collection
     queue.put("Done")
 
@@ -1139,4 +1219,4 @@ if __name__ == "__main__":
     # now create it again as an empty file
     with open("scan_output/snapshotlog.txt", "w"):
         pass
-    getImages(Queue(), 2, 0.25)
+    getImages(Queue(), 2, 0.25, "All")

@@ -7,6 +7,7 @@ import logging
 import pytesseract
 import cv2
 from strsimpy import Cosine  # used for string cosine similarity
+from ui_elements import UIElementMatcher
 from preprocess_images import (
     preprocess_image,
     preprocess_wengine_image,
@@ -917,7 +918,9 @@ def process_level_image(image_path: str) -> tuple[str, str]:
 
 
 # the main function that will be called to process the images in orchestrator.py
-def imageScanner(queue: Queue, resolution: ScreenResolution):
+def imageScanner(
+    queue: Queue, resolution: ScreenResolution, ui_matcher: UIElementMatcher
+):
     setup_logging()
     # scan through all images in the scan_input folder
     current_scan_type = None

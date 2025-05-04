@@ -19,6 +19,9 @@ This branch is working to add weapon data (wengines, upgrade levels (weapon fusi
 ### TODOs
 
 1. Consider finding an alternative method of image matching that is not practically resolution dependent
-2. Add a periodic check to see if a new version of the scanner is available on github so folks don't use an out of date version
-3. Seperate out set strings and similar data that is changed version to version from validMetaData into a seperate json file
-4. See if we can get that version data JSON to be downloadable-on-click from the electron frontend if a new version is available (and no other code changes are present between versions)
+2. Decide if we want to implement selection into the frontend for scan all vs weapons vs characters vs disks individually
+3. Verify & Adjust the output JSON format to formalize it so that other tools can use the scan result beyond ZZZ-Optimizer - maybe give it a name too?
+4. Do a final test-and-fix pass for agent, wengine, and disk scanning before pushing the new version
+5. Add a periodic check to see if a new version of the scanner is available on github so folks don't use an out of date version
+6. Seperate out set strings and similar data that is changed version to version from validMetaData into a seperate json file
+7. See if we can get that version data JSON to be downloadable-on-click from the electron frontend if a new version is available (and no other code changes are present between versions)

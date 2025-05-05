@@ -82,15 +82,9 @@ if __name__ == "__main__":
     # Get the screen resolution
     screenWidth, screenHeight = pyautogui.size()
 
-    # get the screen resolution enum
-    screenResolution = (
-        ScreenResolution.RES_1440P
-        if screenWidth == 2560
-        else ScreenResolution.RES_1080P
-    )
-
     # create the ui_matcher
-    ui_matcher = UIElementMatcher(screenWidth, screenHeight)
+    ui_matcher_get_images = UIElementMatcher(screenWidth, screenHeight)
+    ui_matcher_image_scanner = UIElementMatcher(screenWidth, screenHeight)
 
     # get current directory so we can return to it later
     current_directory = os.getcwd()
@@ -130,12 +124,17 @@ if __name__ == "__main__":
             (pageLoadTime),
             (discScanTime),
             (scantype),
-            (ui_matcher),
+            (ui_matcher_get_images),
         ),
     )
     image_scanner_process = Process(
         target=imageScanner,
-        args=((image_queue), (screenResolution), (ui_matcher)),
+        args=(
+            (image_queue),
+            (screenWidth),
+            (screenHeight),
+            (ui_matcher_image_scanner),
+        ),
     )
 
     get_images_process.start()

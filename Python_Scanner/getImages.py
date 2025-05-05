@@ -494,9 +494,6 @@ def getWEngineTab(
     if save_folder and not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    if not queue and not save_folder:
-        raise ValueError("Must provide either a queue or save_folder or both")
-
     # Create UI matcher if not provided
     if ui_matcher is None:
         ui_matcher = UIElementMatcher(screenWidth, screenHeight)
@@ -751,6 +748,7 @@ def get_character_disks_equipped(
 ) -> list[bool]:
     """
     Get the disks equipped of the current character from an image of the equipment screen
+    Note: This function doesn't take a pased in ui_matcher because it creates its own per screenshot
 
     Args:
         screenshot (PIL.Image.Image): The screenshot of the equipment screen to check from pyautogui.screenshot()

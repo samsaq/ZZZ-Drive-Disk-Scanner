@@ -16,7 +16,6 @@ from preprocess_images import (
     preprocess_skill_image,
     preprocess_character_weapon_image,
 )
-from getImages import ScreenResolution
 from validMetadata import (
     valid_set_names,
     valid_partition_1_main_stats,
@@ -33,6 +32,7 @@ from validMetadata import (
     get_expected_sub_stat_values,
     get_rarity_stats,
 )
+from ui_elements import ExistingScreenshotMatcher, UIElement
 
 debug = False
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -662,7 +662,9 @@ def correct_wengine_data(data):
 ### Character Specific Functions ###
 
 
-def process_character_disk_image(image_path: str, partition_number: int) -> dict:
+def process_character_disk_image(
+    image_path: str, partition_number: int, screen_width: int, screen_height: int
+) -> dict:
     """
     Process the character disk image to get the disk data for comparison with the current scan's data to assign the disk to a character later
 
@@ -674,7 +676,9 @@ def process_character_disk_image(image_path: str, partition_number: int) -> dict
         dict: The metadata of the disk or an empty dictionary if the disk is not valid
     """
     preprocess_image(
-        image_path,
+        image_path=image_path,
+        screen_width=screen_width,
+        screen_height=screen_height,
         target_images_folder="./Target_Images",
         save_path=image_path,
     )  # the regular preprocess_image function is used here as it is actually for disk images
@@ -699,7 +703,7 @@ def process_character_disk_image(image_path: str, partition_number: int) -> dict
 
 
 def process_character_weapon_image(
-    resolution: ScreenResolution, image_path: str
+    image_path: str, screen_width: int, screen_height: int
 ) -> dict:
     """
     Process the character weapon image to get the weapon name
@@ -717,7 +721,9 @@ def process_character_weapon_image(
         }
     """
     processed_image, upgrade_rank = preprocess_character_weapon_image(
-        image_path=image_path, resolution=resolution
+        image_path=image_path,
+        screen_width=screen_width,
+        screen_height=screen_height,
     )
     text = scan_image(processed_image)
     weapon = process_wengine_text(text, preprocess_rank=upgrade_rank)
@@ -728,7 +734,8 @@ def process_character_weapon_image(
 
 
 def process_cinema_image(
-    resolution: ScreenResolution,
+    screen_width: int,
+    screen_height: int,
     image_path: str,
     target_folder: str = "./Target_Images",
 ) -> str:
@@ -736,46 +743,92 @@ def process_cinema_image(
     Process the cinema image to get the mindscape level
 
     Args:
-        resolution (ScreenResolution): Current screen resolution
+        screen_width (int): Current screen width
+        screen_height (int): Current screen height
         image_path (str): Path to the cinema image
         target_folder (str, optional): Path to the target folder
 
     Returns:
         str: The mindscape level (0 for none, 1 to 6 for the number of mindscapes unlocked)
     """
-    locked_image_suffix = (
-        "-1440p" if resolution == ScreenResolution.RES_1440P else "-1080p"
-    )
-
-    # load the main image
+    # Load the main image
     image = cv2.imread(image_path)
     if image is None:
         logging.error(f"Error: Could not load cinema image at {image_path}")
         return None
 
-    # check if the image has locked mindscape icons
+    # Create the UI element matcher for scale-invariant matching
+    ui_matcher = ExistingScreenshotMatcher(image, screen_width, screen_height)
+
+    # Find the first locked mindscape
     lowest_locked_index = None
-    for i in range(1, 6):
-        current_image_path = (
-            f"{target_folder}/zzz-mindscape-locked-{i}{locked_image_suffix}.png"
+
+    # Define the locked text element (common for all levels)
+    locked_text_element = UIElement(
+        name="mindscape_locked_text",
+        template_path=f"{target_folder}/zzz-mindscape-locked-text.png",
+        confidence=0.90,
+    )
+
+    # Check each level from 1 to 6
+    for i in range(1, 7):
+        # Define the number element for this level
+        number_element = UIElement(
+            name=f"mindscape_locked_number_{i}",
+            template_path=f"{target_folder}/zzz-mindscape-locked-number-{i}.png",
+            confidence=0.90,
         )
-        template = cv2.imread(current_image_path)
-        if template is None:
-            logging.error(
-                f"Error: Could not load cinema mindscape locked template at {current_image_path}, skipping it"
-            )
+
+        try:
+            # First check if we can find the level number
+            number_match = ui_matcher.locate_element_with_details(number_element)
+
+            # If number is found, check for the locked text to the right
+            if number_match["found"]:
+                number_x, number_y = number_match["loc"]
+                number_width, number_height = number_match["size"]
+
+                # Define region to the right of the number (15% of screen width)
+                region_width = int(screen_width * 0.15)
+                region_height = int(number_height * 1.1)  # Add 5% margin up and down
+                region_x = number_x + number_width
+                region_y = number_y - int(number_height * 0.05)  # 5% margin up
+
+                # Create a cropped image for the region to the right
+                if (
+                    region_y >= 0
+                    and region_x >= 0
+                    and region_y + region_height <= image.shape[0]
+                    and region_x + region_width <= image.shape[1]
+                ):
+
+                    region_image = image[
+                        region_y : region_y + region_height,
+                        region_x : region_x + region_width,
+                    ]
+
+                    # Create a matcher for this specific region
+                    region_matcher = ExistingScreenshotMatcher(
+                        region_image, screen_width, screen_height
+                    )
+
+                    # Check for the locked text in this region
+                    text_match = region_matcher.locate_element_with_details(
+                        locked_text_element, visualize_match=True
+                    )
+
+                    # If both number and locked text are found, we've found a locked level
+                    if text_match["found"]:
+                        lowest_locked_index = i
+                        break
+
+        except Exception as e:
+            logging.error(f"Error matching mindscape level {i}: {e}")
             continue
 
-        # Perform template matching
-        result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-
-        # If we find a match with high confidence
-        if max_val > 0.9:
-            lowest_locked_index = i
-            break
-
-    # if we didn't find any locked images, then all are unlocked
+    # If no locked levels were found, all are unlocked (level 6)
+    # If level 1 is locked, return 0
+    # If level i is locked, return i-1
     if lowest_locked_index is None:
         return "6"  # we are at all unlocked
     else:
@@ -919,9 +972,17 @@ def process_level_image(image_path: str) -> tuple[str, str]:
 
 # the main function that will be called to process the images in orchestrator.py
 def imageScanner(
-    queue: Queue, resolution: ScreenResolution, ui_matcher: UIElementMatcher
+    queue: Queue,
+    screen_width: int,
+    screen_height: int,
+    ui_matcher: UIElementMatcher = None,
 ):
     setup_logging()
+
+    if ui_matcher is None:
+        screen_width, screen_height = pyautogui.size()
+        ui_matcher = UIElementMatcher(screen_width, screen_height)
+
     # scan through all images in the scan_input folder
     current_scan_type = None
     disk_data = []
@@ -956,7 +1017,10 @@ def imageScanner(
                     print(f"Processing {image_path}")
                 try:
                     processed_image = preprocess_image(
-                        image_path, target_images_folder="./Target_Images"
+                        image_path=image_path,
+                        screen_width=screen_width,
+                        screen_height=screen_height,
+                        target_images_folder="./Target_Images",
                     )
                     result = scan_image(processed_image)
                     result_metadata = extract_metadata(result, image_path)
@@ -1121,7 +1185,9 @@ def imageScanner(
                     # Only process if we haven't already completed this character
                     if cur_equipment_status["weapon"]:
                         cur_character_data["weapon"] = process_character_weapon_image(
-                            resolution=resolution, image_path=image_path
+                            image_path=image_path,
+                            screen_width=screen_width,
+                            screen_height=screen_height,
                         )
                     # Weapon is the last piece of data to be collected, so we can append the character data and reset the character data structure
                     character_data.append(cur_character_data)
@@ -1133,7 +1199,9 @@ def imageScanner(
                     characterNum += 1
                 elif "cinema" in image_path:
                     cur_character_data["mindscape_level"] = process_cinema_image(
-                        resolution=resolution, image_path=image_path
+                        screen_width=screen_width,
+                        screen_height=screen_height,
+                        image_path=image_path,
                     )
                     has_basic_info = (
                         True  # cinema is the last piece of basic info collected
@@ -1188,7 +1256,10 @@ def imageScanner(
                     ):
                         cur_character_data[f"disk_{partition_number}"] = (
                             process_character_disk_image(
-                                image_path=image_path, partition_number=partition_number
+                                image_path=image_path,
+                                partition_number=partition_number,
+                                screen_width=screen_width,
+                                screen_height=screen_height,
                             )
                         )
 
@@ -1247,25 +1318,40 @@ def imageScanner(
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     # test the scanner on a single image
-    save_path = resource_path("./scan_output/Partition2Scan7.png")
-    image_path = resource_path("./scan_input/Partition2Scan7.png")
+    # save_path = resource_path("./scan_output/Partition2Scan7.png")
+    # image_path = resource_path("./scan_input/Partition2Scan7.png")
+    assumed_screen_width = 1920
+    assumed_screen_height = 1080
     setup_logging()
-    processed_image = preprocess_image(
-        image_path, save_path=save_path, target_images_folder="./Target_Images"
+    # processed_image = preprocess_image(
+    #     image_path=image_path,
+    #     screen_width=assumed_screen_width,
+    #     screen_height=assumed_screen_height,
+    #     save_path=save_path,
+    #     target_images_folder="./Target_Images",
+    # )
+    # result = scan_image(processed_image)
+    # result_metadata = extract_metadata(result, image_path)
+    # correct_metadata(result_metadata)
+    # valid_disk_drive, error_message = validate_disk_drive(
+    #     result_metadata["set_name"],
+    #     result_metadata["drive_current_level"],
+    #     result_metadata["drive_max_level"],
+    #     result_metadata["partition_number"],
+    #     result_metadata["drive_base_stat"],
+    #     result_metadata["drive_base_stat_number"],
+    #     result_metadata["random_stats"],
+    # )
+    # if valid_disk_drive:
+    #     logging.info("Disk drive passed validation")
+    # else:
+    #     logging.error(f"Disk drive failed validation: {error_message}")
+
+    # test the cinema image scanner
+    screen_width = 2560
+    screen_height = 1440
+    image_path = resource_path("./TestImages/mindscape-6.png")
+    mindscape_level = process_cinema_image(
+        screen_width=screen_width, screen_height=screen_height, image_path=image_path
     )
-    result = scan_image(processed_image)
-    result_metadata = extract_metadata(result, image_path)
-    correct_metadata(result_metadata)
-    valid_disk_drive, error_message = validate_disk_drive(
-        result_metadata["set_name"],
-        result_metadata["drive_current_level"],
-        result_metadata["drive_max_level"],
-        result_metadata["partition_number"],
-        result_metadata["drive_base_stat"],
-        result_metadata["drive_base_stat_number"],
-        result_metadata["random_stats"],
-    )
-    if valid_disk_drive:
-        logging.info("Disk drive passed validation")
-    else:
-        logging.error(f"Disk drive failed validation: {error_message}")
+    print(f"Mindscape level: {mindscape_level}")

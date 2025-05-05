@@ -3,6 +3,7 @@ import numpy as np
 import pyautogui
 from typing import Any, Tuple, Optional, List
 from dataclasses import dataclass
+import os
 
 
 @dataclass
@@ -149,7 +150,7 @@ class ExistingScreenshotMatcher(UIElementMatcher):
         Initialize with an existing screenshot
 
         Args:
-            screenshot: The screenshot image (PIL.Image or numpy array)
+            screenshot: The screenshot image (PIL.Image or numpy array, expected to be BGR)
             screen_width: Width of the screen
             screen_height: Height of the screen
         """
@@ -232,6 +233,116 @@ class ExistingScreenshotMatcher(UIElementMatcher):
 
         except Exception as e:
             error_msg = f"Error locating all elements {element.name} in screenshot: {e}"
+            raise Exception(error_msg) from e
+
+    def locate_element_with_details(
+        self,
+        element: UIElement,
+        visualize_match: bool = False,
+        visualization_path_base: str = "./TestImages/match_result",
+    ) -> dict:
+        """
+        Locate an element and return detailed match information
+
+        Args:
+            element: The UI element to find
+            visualize_match: (bool, optional) Whether to save a visualization of the match
+            visualization_path_base: (str, optional) Path to save the visualization (by default, uses TestImages with the element name)
+
+        Returns:
+            dict with keys: score, loc, match_result, found, size
+        """
+        try:
+            # Get the properly scaled template
+            template = self._load_and_resize_template(element)
+
+            # Perform template matching on the existing screenshot
+            result = cv2.matchTemplate(
+                self.screenshot_cv, template, cv2.TM_CCOEFF_NORMED
+            )
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+
+            # Determine if element was found based on confidence threshold
+            found = max_val >= element.confidence
+
+            # Return value dictionary
+            match_details = {
+                "score": max_val,
+                "loc": max_loc,
+                "match_result": result,
+                "found": found,
+                "size": (template.shape[1], template.shape[0]),
+            }
+
+            # Visualize match if requested
+            if visualize_match:
+                # Create a copy of the screenshot for visualization
+                viz_image = self.screenshot_cv.copy()
+
+                # Get the rectangle coordinates
+                top_left = max_loc
+                bottom_right = (
+                    top_left[0] + template.shape[1],
+                    top_left[1] + template.shape[0],
+                )
+
+                # Draw the rectangle in red (BGR format: B=0, G=0, R=255)
+                cv2.rectangle(viz_image, top_left, bottom_right, (0, 0, 255), 2)
+
+                # Add confidence score text
+                confidence_text = f"Confidence: {max_val:.2f}"
+                text_position = (
+                    top_left[0],
+                    top_left[1] - 10,
+                )  # Position text above rectangle
+                cv2.putText(
+                    viz_image,
+                    confidence_text,
+                    text_position,
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,  # Font scale
+                    (0, 0, 255),  # Red color
+                    1,  # Line thickness
+                    cv2.LINE_AA,  # Anti-aliased line
+                )
+
+                # Add a "FOUND" or "NOT FOUND" indicator based on confidence threshold
+                status_text = f"{element.name}: {'FOUND' if found else 'NOT FOUND'}"
+                status_position = (
+                    top_left[0],
+                    bottom_right[1] + 20,
+                )  # Position text below rectangle
+                cv2.putText(
+                    viz_image,
+                    status_text,
+                    status_position,
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 0) if found else (0, 0, 255),  # Green if found, red if not
+                    1,
+                    cv2.LINE_AA,
+                )
+
+                # Save the visualization
+                visualization_path = f"{visualization_path_base}_{element.name}.png"
+
+                # Ensure directory exists
+                os.makedirs(
+                    (
+                        os.path.dirname(visualization_path)
+                        if os.path.dirname(visualization_path)
+                        else "."
+                    ),
+                    exist_ok=True,
+                )
+
+                # Save the visualization
+                cv2.imwrite(visualization_path, viz_image)
+
+            return match_details
+
+        except Exception as e:
+            error_msg = f"Error locating element {element.name} in screenshot: {e}"
             raise Exception(error_msg) from e
 
 

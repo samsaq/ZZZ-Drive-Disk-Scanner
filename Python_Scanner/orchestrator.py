@@ -99,7 +99,7 @@ if __name__ == "__main__":
     # if we don't have the correct number of arguments, we will keep the defaults
 
     pageLoadTime = 2
-    discScanTime = 0.25
+    discScanTime = 0.5
     scantype = "Character"
 
     if len(sys.argv) == 3:

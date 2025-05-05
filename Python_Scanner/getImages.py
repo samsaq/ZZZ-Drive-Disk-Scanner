@@ -714,6 +714,7 @@ def is_character_owned(
 
     # click the wish reel icon to display the promotion preview popup
     wishReelIconPosition = (0.92 * screenWidth, 0.2 * screenHeight)
+    popExitPosition = (0.805 * screenWidth, 0.2 * screenHeight)
     pyautogui.moveTo(wishReelIconPosition)
     pyautogui.click()
     time.sleep(scanTime)
@@ -730,14 +731,19 @@ def is_character_owned(
         )
 
         # If we found the element, character is not owned
-        keyboard.press("esc")
+        time.sleep(
+            pageLoadTime / 2
+        )  # there's a delay before the close button becomes active after opening the popup
+        pyautogui.moveTo(popExitPosition)
+        pyautogui.click()
         time.sleep(pageLoadTime)
         print("Agent is owned: ", not is_found)
         return not is_found
     except Exception as e:
         # Handle any unexpected errors
         print(f"Error checking if agent is owned: {e}")
-        keyboard.press("esc")
+        pyautogui.moveTo(popExitPosition)
+        pyautogui.click()
         time.sleep(pageLoadTime)
         return False
 
@@ -911,7 +917,7 @@ def get_character_snapshots(
         ui_matcher=ui_matcher, scanTime=scanTime, pageLoadTime=pageLoadTime
     ):
         return True
-    time.sleep(scanTime * 2)
+    time.sleep(pageLoadTime)
 
     name_region = (
         int(0.54 * screenWidth),

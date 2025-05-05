@@ -1267,21 +1267,21 @@ if __name__ == "__main__":
 
     # print("End of disk drives scan test complete!")
 
-    from getImages import getWEngineTab, switchToWEngineBackpack
+    # from getImages import getWEngineTab, switchToWEngineBackpack
 
-    # Create output directory if it doesn't exist
-    test_output_dir = "./TestImages/WEngines"
-    if not os.path.exists(test_output_dir):
-        os.makedirs(test_output_dir)
+    # # Create output directory if it doesn't exist
+    # test_output_dir = "./TestImages/WEngines"
+    # if not os.path.exists(test_output_dir):
+    #     os.makedirs(test_output_dir)
 
     # Create UI matcher
-    ui_matcher = UIElementMatcher(screenWidth, screenHeight)
-    screenshot = PIL.Image.open("./TestImages/region_screenshot_48.png")
-    ui_matcherExisting = ExistingScreenshotMatcher(
-        screenshot=screenshot,
-        screen_width=screenWidth,
-        screen_height=screenHeight,
-    )
+    # ui_matcher = UIElementMatcher(screenWidth, screenHeight)
+    # screenshot = PIL.Image.open("./TestImages/region_screenshot_48.png")
+    # ui_matcherExisting = ExistingScreenshotMatcher(
+    #     screenshot=screenshot,
+    #     screen_width=screenWidth,
+    #     screen_height=screenHeight,
+    # )
     # switchToWEngineBackpack(1)
 
     # no_inventory_item_icon = UI_ELEMENTS["no_inventory_item_icon"]
@@ -1289,20 +1289,20 @@ if __name__ == "__main__":
     # print(endOfInventory)
 
     # Test getWEngineTab function
-    print("Testing getWEngineTab function...")
-    try:
-        total_scanned = getWEngineTab(
-            save_folder=test_output_dir,
-            scanTime=0.5,  # Slightly longer scan time for testing
-            ui_matcher=ui_matcher,
-        )
-        print(f"Successfully scanned {total_scanned} W-Engines")
+    # print("Testing getWEngineTab function...")
+    # try:
+    #     total_scanned = getWEngineTab(
+    #         save_folder=test_output_dir,
+    #         scanTime=0.5,  # Slightly longer scan time for testing
+    #         ui_matcher=ui_matcher,
+    #     )
+    #     print(f"Successfully scanned {total_scanned} W-Engines")
 
-        # Take a screenshot showing the matcher in action
-        pyautogui.screenshot("./TestImages/wengine_scan_complete.png")
+    #     # Take a screenshot showing the matcher in action
+    #     pyautogui.screenshot("./TestImages/wengine_scan_complete.png")
 
-    except Exception as e:
-        print(f"Error testing getWEngineTab: {e}")
+    # except Exception as e:
+    #     print(f"Error testing getWEngineTab: {e}")
 
-    print("Test complete!")
-    print(f"Scanned W-Engines can be found in: {test_output_dir}")
+    # print("Test complete!")
+    # print(f"Scanned W-Engines can be found in: {test_output_dir}")
